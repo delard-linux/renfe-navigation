@@ -26,7 +26,7 @@ ENV/
 .pytest_cache/
 .coverage
 .coverage.*
-htmlcov/
+htmlcov/          # Reportes HTML de cobertura de tests
 
 # Type checker / linters caches
 .mypy_cache/
