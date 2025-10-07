@@ -19,13 +19,31 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Renfe Navigation API")
 
 
+class FareOption(BaseModel):
+    """Tarifa individual de un tren"""
+
+    name: str
+    price: float
+    currency: str = "EUR"
+    code: Optional[str] = None
+    tp_enlace: Optional[str] = None
+    features: List[str] = []
+
+
 class Train(BaseModel):
-    service: str
-    departure: str
-    arrival: str
+    """Tren con todas sus tarifas y detalles"""
+
+    train_id: str
+    service_type: str
+    departure_time: str
+    arrival_time: str
     duration: str
-    fare_from: Optional[float] = None
-    currency: Optional[str] = None
+    price_from: float
+    currency: str = "EUR"
+    fares: List[FareOption] = []
+    badges: List[str] = []
+    accessible: bool = False
+    eco_friendly: bool = False
 
 
 class TrainsResponse(BaseModel):
