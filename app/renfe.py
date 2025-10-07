@@ -2,12 +2,15 @@ from typing import List, Optional, Tuple
 from pydantic import BaseModel
 from datetime import datetime
 import logging
+import json
+import os
 
 from playwright.async_api import async_playwright
 
 logger = logging.getLogger(__name__)
 
-RENFE_HOME = "https://www.renfe.com/es/es"
+RENFE_SEARCH_URL = "https://venta.renfe.com/vol/buscarTren.do?Idioma=es&Pais=ES"
+RESPONSES_DIR = os.path.join(os.path.dirname(__file__), "..", "responses")
 
 
 class TrainModel(BaseModel):
@@ -19,195 +22,158 @@ class TrainModel(BaseModel):
     currency: Optional[str] = None
 
 
-async def _fill_search_form(
-    page,
-    origin: str,
-    destination: str,
-    date_out: str,
-    date_return: Optional[str],
-    adults: int,
-) -> None:
-    logger.info(f"[SCRAPER] Navegando a {RENFE_HOME}")
-    await page.goto(RENFE_HOME)
+def _ensure_responses_dir():
+    """Crea el directorio responses si no existe"""
+    os.makedirs(RESPONSES_DIR, exist_ok=True)
 
-    # Accept cookies if banner appears
+
+def _save_response(content: str, status_code: int = 200):
+    """Guarda la respuesta HTML con el formato [AAMMDD_HH24MISS]_[Status code]_buscarTren.do.log"""
+    _ensure_responses_dir()
+    timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
+    filename = f"{timestamp}_{status_code}_buscarTren.do.log"
+    filepath = os.path.join(RESPONSES_DIR, filename)
+
     try:
-        accept_selector = 'button:has-text("Aceptar")'
-        if await page.is_visible(accept_selector):
-            logger.info("[SCRAPER] Aceptando cookies")
-            await page.click(accept_selector)
-    except Exception:
-        pass
-
-    # Fill origin
-    logger.info(f"[SCRAPER] Rellenando origen: {origin}")
-    await page.get_by_label("ORIGEN").click()
-    await page.keyboard.type(origin)
-    await page.wait_for_timeout(400)
-    await page.keyboard.press("Enter")
-
-    # Fill destination
-    logger.info(f"[SCRAPER] Rellenando destino: {destination}")
-    await page.get_by_label("DESTINO").click()
-    await page.keyboard.type(destination)
-    await page.wait_for_timeout(400)
-    await page.keyboard.press("Enter")
-
-    # Dates
-    logger.info(f"[SCRAPER] Seleccionando fecha de ida: {date_out}")
-    await page.get_by_text("FECHA IDA").click()
-    await _pick_date(page, date_out)
-
-    if date_return:
-        logger.info(f"[SCRAPER] Seleccionando fecha de vuelta: {date_return}")
-        await page.get_by_text("FECHA VUELTA").click()
-        await _pick_date(page, date_return)
-
-    # Passengers
-    logger.info(f"[SCRAPER] Configurando pasajeros: {adults}")
-    await page.get_by_text("PASAJEROS").click()
-    current = 1
-    if adults > current:
-        for _ in range(adults - current):
-            await page.locator('button[aria-label="Aumentar adultos"]').click()
-    elif adults < current:
-        for _ in range(current - adults):
-            await page.locator('button[aria-label="Disminuir adultos"]').click()
-    await page.keyboard.press("Escape")
-
-    # Submit
-    logger.info("[SCRAPER] Enviando formulario de búsqueda")
-    await page.get_by_role("button", name="Buscar billete").click()
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+        logger.info(f"[SCRAPER] Respuesta guardada en: {filename}")
+        return filepath
+    except Exception as e:
+        logger.error(f"[SCRAPER] Error guardando respuesta: {e}")
+        return None
 
 
-async def _pick_date(page, date_str: str) -> None:
-    target = datetime.strptime(date_str, "%Y-%m-%d")
-    day_str = str(target.day)
-
-    for _ in range(24):
-        calendar_header = page.locator(
-            '[class*="calendar"] [class*="month"], .ui-datepicker-title'
-        )
-        text = (
-            await calendar_header.first().text_content()
-            if await calendar_header.count() > 0
-            else ""
-        )
-        if (
-            text
-            and str(target.year) in text
-            and _month_name_es(target.month) in text.lower()
-        ):
-            day_cell = page.locator(f'button[aria-label*=" {day_str} "]')
-            if await day_cell.count() == 0:
-                day_cell = page.locator(f'td:has(button) >> text="{day_str}"')
-            await day_cell.first().click()
-            await page.wait_for_timeout(200)
-            return
-        next_btn = page.locator(
-            'button[aria-label*="Siguiente"], button:has-text("Siguiente")'
-        )
-        if await next_btn.count() == 0:
-            next_btn = page.locator('button[aria-label="Next"]')
-        await next_btn.first().click()
-        await page.wait_for_timeout(150)
+def _load_stations():
+    """Carga el catálogo de estaciones desde el JSON"""
+    stations_path = os.path.join(
+        os.path.dirname(__file__), "resources", "estaciones.json"
+    )
+    try:
+        with open(stations_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.warning(f"No se pudo cargar estaciones.json: {e}")
+        return []
 
 
-def _month_name_es(month: int) -> str:
-    names = [
-        "enero",
-        "febrero",
-        "marzo",
-        "abril",
-        "mayo",
-        "junio",
-        "julio",
-        "agosto",
-        "septiembre",
-        "octubre",
-        "noviembre",
-        "diciembre",
-    ]
-    return names[month - 1]
+def _find_station(station_name: str) -> dict:
+    """Busca una estación por nombre en el catálogo"""
+    stations = _load_stations()
+    station_upper = station_name.upper()
+
+    # Buscar coincidencia exacta primero
+    for station in stations:
+        if station.get("desgEstacionPlano", "").upper() == station_upper:
+            return station
+        if station.get("cdgoEstacion", "").upper() == station_upper:
+            return station
+
+    # Buscar coincidencia parcial
+    for station in stations:
+        plano = station.get("desgEstacionPlano", "").upper()
+        if station_upper in plano or plano.startswith(station_upper):
+            return station
+
+    # Si no se encuentra, devolver datos genéricos
+    logger.warning(
+        f"Estación '{station_name}' no encontrada en catálogo, usando búsqueda genérica"
+    )
+    return {
+        "cdgoEstacion": station_name.upper()[:5],
+        "cdgoAdmon": "0071",
+        "desgEstacion": station_name.upper(),
+        "clave": f"0071,{station_name.upper()[:5]},null",
+    }
 
 
 async def _extract_results(page) -> List[TrainModel]:
     trains: List[TrainModel] = []
     logger.info("[SCRAPER] Esperando carga de resultados...")
     await page.wait_for_load_state("networkidle")
+
+    # Intentar varios selectores para las tarjetas de tren
     cards = page.locator(
-        '[data-testid*="result"], article:has([class*="hora"]) , .trayecto, .result-item'
+        '.trayecto-datos, .resultado-tren, [class*="trayecto"], [class*="resultado"]'
     )
     count = await cards.count()
     logger.info(f"[SCRAPER] Extrayendo datos de {count} trenes encontrados")
+
     for i in range(count):
         card = cards.nth(i)
         try:
-            service = (
-                await card.locator(
-                    ':text("AVE"), :text("Avlo"), :text("Alvia"), :text("Intercity"), :text("MD")'
-                )
-                .first()
-                .text_content()
-            ) or "tren"
-        except Exception:
+            # Intentar extraer tipo de servicio
             service = "tren"
-        try:
-            dep = (
-                await card.locator(':text("Salida"), [class*="salida"], time')
-                .first()
-                .text_content()
-            )
-            arr = (
-                await card.locator(':text("Llegada"), [class*="llegada"], time')
-                .nth(1)
-                .text_content()
-            )
-        except Exception:
-            dep = arr = ""
-        try:
-            duration = (
-                await card.locator(
-                    ':text("Duración"), [class*="duracion"], [class*="duration"]'
+            try:
+                service_elem = (
+                    await card.locator('[class*="tipo"], [class*="servicio"]')
+                    .first()
+                    .text_content()
                 )
-                .first()
-                .text_content()
-            )
-        except Exception:
+                if service_elem:
+                    service = service_elem.strip()
+            except Exception:
+                pass
+
+            # Horarios
+            dep = arr = ""
+            try:
+                times = await card.locator(
+                    '[class*="hora"], time, [class*="salida"], [class*="llegada"]'
+                ).all_text_content()
+                if len(times) >= 2:
+                    dep = times[0].strip()
+                    arr = times[1].strip()
+            except Exception:
+                pass
+
+            # Duración
             duration = ""
-        price_text = None
-        try:
-            price_text = (
-                await card.locator(':text("€"), [class*="precio"], [class*="price"]')
-                .first()
-                .text_content()
-            )
-        except Exception:
-            pass
-        fare = None
-        currency = None
-        if price_text:
-            txt = price_text.replace(" ", "").replace(",", ".")
-            if "€" in txt:
-                currency = "EUR"
-                try:
+            try:
+                duration_elem = (
+                    await card.locator('[class*="duracion"], [class*="duration"]')
+                    .first()
+                    .text_content()
+                )
+                if duration_elem:
+                    duration = duration_elem.strip()
+            except Exception:
+                pass
+
+            # Precio
+            fare = None
+            currency = None
+            try:
+                price_text = (
+                    await card.locator('[class*="precio"], [class*="price"], .importe')
+                    .first()
+                    .text_content()
+                )
+                if price_text and "€" in price_text:
+                    currency = "EUR"
                     import re
 
+                    txt = price_text.replace(" ", "").replace(",", ".")
                     m = re.search(r"(\d+\.?\d*)", txt)
                     if m:
                         fare = float(m.group(1))
-                except Exception:
-                    pass
-        trains.append(
-            TrainModel(
-                service=service.strip(),
-                departure=dep.strip(),
-                arrival=arr.strip(),
-                duration=duration.strip(),
-                fare_from=fare,
-                currency=currency,
+            except Exception:
+                pass
+
+            trains.append(
+                TrainModel(
+                    service=service,
+                    departure=dep,
+                    arrival=arr,
+                    duration=duration,
+                    fare_from=fare,
+                    currency=currency,
+                )
             )
-        )
+        except Exception as e:
+            logger.warning(f"[SCRAPER] Error extrayendo tren {i}: {e}")
+            continue
+
     return trains
 
 
@@ -219,26 +185,114 @@ async def search_trains(
     adults: int,
 ) -> Tuple[List[TrainModel], Optional[List[TrainModel]]]:
     logger.info("[SCRAPER] Iniciando navegador Chromium")
+
+    # Buscar estaciones en el catálogo
+    origin_station = _find_station(origin)
+    dest_station = _find_station(destination)
+
+    logger.info(
+        f"[SCRAPER] Origen: {origin_station.get('desgEstacion', origin)} - Clave: {origin_station.get('clave')}"
+    )
+    logger.info(
+        f"[SCRAPER] Destino: {dest_station.get('desgEstacion', destination)} - Clave: {dest_station.get('clave')}"
+    )
+
+    # Convertir fechas de YYYY-MM-DD a DD/MM/YYYY
+    date_out_obj = datetime.strptime(date_out, "%Y-%m-%d")
+    date_out_formatted = date_out_obj.strftime("%d/%m/%Y")
+
+    date_return_formatted = ""
+    if date_return:
+        date_return_obj = datetime.strptime(date_return, "%Y-%m-%d")
+        date_return_formatted = date_return_obj.strftime("%d/%m/%Y")
+
+    # Construir form data
+    form_data = {
+        "tipoBusqueda": "autocomplete",
+        "currenLocation": "menuBusqueda",
+        "vengoderenfecom": "SI",
+        "desOrigen": origin_station.get("desgEstacion", origin),
+        "desDestino": dest_station.get("desgEstacion", destination),
+        "cdgoOrigen": origin_station.get("clave", f"0071,{origin},null"),
+        "cdgoDestino": dest_station.get("clave", f"0071,{destination},null"),
+        "idiomaBusqueda": "ES",
+        "FechaIdaSel": date_out_formatted,
+        "FechaVueltaSel": date_return_formatted if date_return else "",
+        "_fechaIdaVisual": date_out_formatted,
+        "_fechaVueltaVisual": date_return_formatted if date_return else "",
+        "minPriceDeparture": "false",
+        "minPriceReturn": "false",
+        "adultos_": str(adults),
+        "ninos_": "0",
+        "ninosMenores": "0",
+        "codPromocional": "",
+        "plazaH": "false",
+        "sinEnlace": "false",
+        "conMascota": "false",
+        "conBicicleta": "false",
+        "asistencia": "false",
+        "franjaHoraI": "",
+        "franjaHoraV": "",
+        "Idioma": "es",
+        "Pais": "ES",
+    }
+
+    logger.info(
+        f"[SCRAPER] Parámetros de búsqueda: {date_out_formatted} -> {date_return_formatted if date_return else 'Solo ida'}"
+    )
+
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(locale="es-ES")
         page = await context.new_page()
 
-        await _fill_search_form(
-            page, origin, destination, date_out, date_return, adults
-        )
+        logger.info(f"[SCRAPER] Enviando POST a {RENFE_SEARCH_URL}")
+
+        # Navegar directamente con POST
+        await page.goto(RENFE_SEARCH_URL, wait_until="domcontentloaded")
+
+        # Enviar el formulario con JavaScript
+        await page.evaluate(f"""
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{RENFE_SEARCH_URL}';
+            
+            const params = {json.dumps(form_data)};
+            for (const [key, value] of Object.entries(params)) {{
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = value;
+                form.appendChild(input);
+            }}
+            
+            document.body.appendChild(form);
+            form.submit();
+        """)
+
+        logger.info("[SCRAPER] Esperando respuesta del servidor...")
+        await page.wait_for_load_state("networkidle", timeout=30000)
+
+        # Guardar la respuesta HTML
+        response_content = await page.content()
+        _save_response(response_content, status_code=200)
 
         logger.info("[SCRAPER] Extrayendo resultados de ida")
         trains_out = await _extract_results(page)
         trains_ret: Optional[List[TrainModel]] = None
 
-        if date_return:
+        if date_return and trains_out:
             try:
-                logger.info("[SCRAPER] Cambiando a pestaña de vuelta")
-                await page.get_by_role("tab", name="Vuelta").click()
-                await page.wait_for_timeout(300)
-                logger.info("[SCRAPER] Extrayendo resultados de vuelta")
-                trains_ret = await _extract_results(page)
+                # Intentar buscar pestaña o sección de vuelta
+                logger.info("[SCRAPER] Buscando resultados de vuelta")
+                vuelta_tab = page.locator(
+                    '[id*="vuelta"], [class*="vuelta"], a:has-text("Vuelta")'
+                )
+                if await vuelta_tab.count() > 0:
+                    await vuelta_tab.first().click()
+                    await page.wait_for_timeout(500)
+                    logger.info("[SCRAPER] Extrayendo resultados de vuelta")
+                    trains_ret = await _extract_results(page)
             except Exception as e:
                 logger.warning(
                     f"[SCRAPER] No se pudieron extraer trenes de vuelta: {e}"

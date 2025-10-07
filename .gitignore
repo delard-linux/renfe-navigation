@@ -56,3 +56,7 @@ Thumbs.db
 # Misc
 .python-version
 .cache/
+
+# Responses logs
+responses/
+*.log
