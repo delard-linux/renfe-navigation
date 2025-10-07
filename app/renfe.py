@@ -6,6 +6,8 @@ import json
 import os
 
 from playwright.async_api import async_playwright
+import importlib
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,66 @@ class TrainModel(BaseModel):
     badges: List[str] = []  # Etiquetas (Precio más bajo, Más rápido, etc.)
     accessible: bool = False  # Plaza H disponible
     eco_friendly: bool = False  # Cero emisiones
+
+
+# Helper para cargar el parser de forma robusta, evitando imports relativos
+_def_parse_train_list_html = None
+
+
+def _get_parse_train_list_html():
+    global _def_parse_train_list_html
+    if _def_parse_train_list_html is not None:
+        return _def_parse_train_list_html
+
+    # Asegurar que el directorio app esté en sys.path
+    app_dir = os.path.dirname(__file__)
+    parent_dir = os.path.dirname(app_dir)
+    if parent_dir not in sys.path:
+        sys.path.insert(0, parent_dir)
+
+    # Intentar diferentes formas de importar el parser
+    import_attempts = [
+        "app.parser",  # Cuando se ejecuta desde el directorio raíz
+        ".parser",  # Import relativo cuando se ejecuta como módulo
+    ]
+
+    errors = []
+    for module_name in import_attempts:
+        try:
+            if module_name.startswith("."):
+                # Para imports relativos, necesitamos especificar el package
+                module = importlib.import_module(module_name, package="app")
+            else:
+                module = importlib.import_module(module_name)
+            func = getattr(module, "parse_train_list_html", None)
+            if callable(func):
+                _def_parse_train_list_html = func
+                logger.info(f"[IMPORT] Parser cargado desde: {module_name}")
+                return _def_parse_train_list_html
+        except Exception as e:
+            errors.append(f"{module_name}: {e}")
+            continue
+
+    # Fallback: intentar importar directamente desde el archivo
+    try:
+        parser_path = os.path.join(os.path.dirname(__file__), "parser.py")
+        if os.path.exists(parser_path):
+            spec = importlib.util.spec_from_file_location("parser_module", parser_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            func = getattr(module, "parse_train_list_html", None)
+            if callable(func):
+                _def_parse_train_list_html = func
+                logger.info(f"[IMPORT] Parser cargado desde archivo: {parser_path}")
+                return _def_parse_train_list_html
+    except Exception as e:
+        errors.append(f"file_location: {e}")
+
+    error_msg = (
+        f"No se pudo importar parse_train_list_html. Intentos: {'; '.join(errors)}"
+    )
+    logger.error(f"[IMPORT] {error_msg}")
+    raise ImportError(error_msg)
 
 
 def _ensure_responses_dir():
@@ -114,9 +176,7 @@ async def _extract_results(page) -> List[TrainModel]:
     await page.wait_for_load_state("networkidle")
     html = await page.content()
     try:
-        # Import local para evitar importaciones circulares en tiempo de test/ejecución
-        from .parser import parse_train_list_html  # type: ignore
-
+        parse_train_list_html = _get_parse_train_list_html()
         trains = parse_train_list_html(html)
         logger.info(f"[SCRAPER] Trenes extraídos: {len(trains)}")
         return trains

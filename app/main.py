@@ -78,9 +78,21 @@ async def get_trains(
             adults=adults,
         )
 
+        # Mapear modelos del scraper (TrainModel) al modelo API (Train)
+        trains_out_api = [
+            Train(**t.model_dump()) if hasattr(t, "model_dump") else Train(**t)
+            for t in trains_out
+        ]
+        trains_ret_api = None
+        if trains_ret is not None:
+            trains_ret_api = [
+                Train(**t.model_dump()) if hasattr(t, "model_dump") else Train(**t)
+                for t in trains_ret
+            ]
+
         elapsed = (datetime.now() - start_time).total_seconds()
         logger.info(
-            f"[SUCCESS] Búsqueda completada en {elapsed:.2f}s - Trenes ida: {len(trains_out)}, Trenes vuelta: {len(trains_ret) if trains_ret else 0}"
+            f"[SUCCESS] Búsqueda completada en {elapsed:.2f}s - Trenes ida: {len(trains_out_api)}, Trenes vuelta: {len(trains_ret_api) if trains_ret_api else 0}"
         )
 
         payload = TrainsResponse(
@@ -89,8 +101,8 @@ async def get_trains(
             date_out=date_out,
             date_return=date_return,
             adults=adults,
-            trains_out=trains_out,
-            trains_return=trains_ret,
+            trains_out=trains_out_api,
+            trains_return=trains_ret_api,
         )
         return JSONResponse(content=payload.model_dump())
     except Exception as e:
