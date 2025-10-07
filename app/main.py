@@ -2,7 +2,19 @@ from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional
-from .renfe import search_trains
+import logging
+from datetime import datetime
+
+try:
+    from .renfe import search_trains
+except ImportError:
+    from renfe import search_trains
+
+# Configurar logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Renfe Navigation API")
 
@@ -34,21 +46,42 @@ async def get_trains(
     date_return: Optional[str] = Query(None, description="Return date YYYY-MM-DD"),
     adults: int = Query(1, ge=1, le=8, description="Number of adult passengers"),
 ):
-    trains_out, trains_ret = await search_trains(
-        origin=origin,
-        destination=destination,
-        date_out=date_out,
-        date_return=date_return,
-        adults=adults,
+    start_time = datetime.now()
+    logger.info(
+        f"[REQUEST] Iniciando búsqueda: {origin} -> {destination}, Salida: {date_out}, Vuelta: {date_return}, Pasajeros: {adults}"
     )
 
-    payload = TrainsResponse(
-        origin=origin,
-        destination=destination,
-        date_out=date_out,
-        date_return=date_return,
-        adults=adults,
-        trains_out=trains_out,
-        trains_return=trains_ret,
-    )
-    return JSONResponse(content=payload.model_dump())
+    try:
+        trains_out, trains_ret = await search_trains(
+            origin=origin,
+            destination=destination,
+            date_out=date_out,
+            date_return=date_return,
+            adults=adults,
+        )
+
+        elapsed = (datetime.now() - start_time).total_seconds()
+        logger.info(
+            f"[SUCCESS] Búsqueda completada en {elapsed:.2f}s - Trenes ida: {len(trains_out)}, Trenes vuelta: {len(trains_ret) if trains_ret else 0}"
+        )
+
+        payload = TrainsResponse(
+            origin=origin,
+            destination=destination,
+            date_out=date_out,
+            date_return=date_return,
+            adults=adults,
+            trains_out=trains_out,
+            trains_return=trains_ret,
+        )
+        return JSONResponse(content=payload.model_dump())
+    except Exception as e:
+        elapsed = (datetime.now() - start_time).total_seconds()
+        logger.error(f"[ERROR] Búsqueda falló después de {elapsed:.2f}s: {str(e)}")
+        raise
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)

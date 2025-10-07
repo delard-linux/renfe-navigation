@@ -1,8 +1,11 @@
 from typing import List, Optional, Tuple
 from pydantic import BaseModel
 from datetime import datetime
+import logging
 
 from playwright.async_api import async_playwright
+
+logger = logging.getLogger(__name__)
 
 RENFE_HOME = "https://www.renfe.com/es/es"
 
@@ -24,37 +27,44 @@ async def _fill_search_form(
     date_return: Optional[str],
     adults: int,
 ) -> None:
+    logger.info(f"[SCRAPER] Navegando a {RENFE_HOME}")
     await page.goto(RENFE_HOME)
 
     # Accept cookies if banner appears
     try:
         accept_selector = 'button:has-text("Aceptar")'
         if await page.is_visible(accept_selector):
+            logger.info("[SCRAPER] Aceptando cookies")
             await page.click(accept_selector)
     except Exception:
         pass
 
     # Fill origin
+    logger.info(f"[SCRAPER] Rellenando origen: {origin}")
     await page.get_by_label("ORIGEN").click()
     await page.keyboard.type(origin)
     await page.wait_for_timeout(400)
     await page.keyboard.press("Enter")
 
     # Fill destination
+    logger.info(f"[SCRAPER] Rellenando destino: {destination}")
     await page.get_by_label("DESTINO").click()
     await page.keyboard.type(destination)
     await page.wait_for_timeout(400)
     await page.keyboard.press("Enter")
 
     # Dates
+    logger.info(f"[SCRAPER] Seleccionando fecha de ida: {date_out}")
     await page.get_by_text("FECHA IDA").click()
     await _pick_date(page, date_out)
 
     if date_return:
+        logger.info(f"[SCRAPER] Seleccionando fecha de vuelta: {date_return}")
         await page.get_by_text("FECHA VUELTA").click()
         await _pick_date(page, date_return)
 
     # Passengers
+    logger.info(f"[SCRAPER] Configurando pasajeros: {adults}")
     await page.get_by_text("PASAJEROS").click()
     current = 1
     if adults > current:
@@ -66,6 +76,7 @@ async def _fill_search_form(
     await page.keyboard.press("Escape")
 
     # Submit
+    logger.info("[SCRAPER] Enviando formulario de búsqueda")
     await page.get_by_role("button", name="Buscar billete").click()
 
 
@@ -122,11 +133,13 @@ def _month_name_es(month: int) -> str:
 
 async def _extract_results(page) -> List[TrainModel]:
     trains: List[TrainModel] = []
+    logger.info("[SCRAPER] Esperando carga de resultados...")
     await page.wait_for_load_state("networkidle")
     cards = page.locator(
         '[data-testid*="result"], article:has([class*="hora"]) , .trayecto, .result-item'
     )
     count = await cards.count()
+    logger.info(f"[SCRAPER] Extrayendo datos de {count} trenes encontrados")
     for i in range(count):
         card = cards.nth(i)
         try:
@@ -205,6 +218,7 @@ async def search_trains(
     date_return: Optional[str],
     adults: int,
 ) -> Tuple[List[TrainModel], Optional[List[TrainModel]]]:
+    logger.info("[SCRAPER] Iniciando navegador Chromium")
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(locale="es-ES")
@@ -214,17 +228,24 @@ async def search_trains(
             page, origin, destination, date_out, date_return, adults
         )
 
+        logger.info("[SCRAPER] Extrayendo resultados de ida")
         trains_out = await _extract_results(page)
         trains_ret: Optional[List[TrainModel]] = None
 
         if date_return:
             try:
+                logger.info("[SCRAPER] Cambiando a pestaña de vuelta")
                 await page.get_by_role("tab", name="Vuelta").click()
                 await page.wait_for_timeout(300)
+                logger.info("[SCRAPER] Extrayendo resultados de vuelta")
                 trains_ret = await _extract_results(page)
-            except Exception:
+            except Exception as e:
+                logger.warning(
+                    f"[SCRAPER] No se pudieron extraer trenes de vuelta: {e}"
+                )
                 trains_ret = None
 
+        logger.info("[SCRAPER] Cerrando navegador")
         await context.close()
         await browser.close()
 
