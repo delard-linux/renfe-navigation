@@ -1,0 +1,82 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.dylib
+*.egg-info/
+.eggs/
+*.egg
+build/
+dist/
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment files
+.env
+.env.*
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Type checker / linters caches
+.mypy_cache/
+.pyright/
+.ruff_cache/
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/
+trace.zip
+trace.trace
+.traces/
+ms-playwright/
+playwright/.cache/
+
+# Editor/IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Responses logs (archivos grandes generados)
+responses/
+*.log
+
+# Package manager
+node_modules/
+package-lock.json
+yarn.lock
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Documentation builds
+docs/_build/
+site/
+
+# Fixtures (son archivos estáticos de prueba, no código a analizar)
+tests/fixtures/*.html
+tests/fixtures/*.log
+
+# Datos estáticos grandes
+app/resources/estaciones.json
+
