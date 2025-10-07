@@ -149,6 +149,35 @@ pytest tests/test_fixed_parser_train_lists.py::test_parse_train_list_html_extrac
 pytest tests/test_fixed_parser_train_lists.py::test_parse_train_list_html_display_results -v -s
 ```
 
+### Cobertura de Tests
+
+El proyecto usa `pytest-cov` para analizar la cobertura de código. Hay varias formas de ver la cobertura:
+
+```bash
+# Ver cobertura en terminal con líneas no cubiertas
+make test-cov
+
+# Generar reporte HTML interactivo
+make test-html  # Abre htmlcov/index.html
+
+# Re-ejecutar solo tests fallidos
+make test-failed
+```
+
+#### Estado actual de cobertura:
+
+| Módulo | Cobertura | Descripción |
+|--------|-----------|-------------|
+| `app/parser.py` | 90% | Parser HTML independiente y testeado |
+| `app/main.py` | 87% | Endpoint FastAPI con tests de integración |
+| `app/renfe.py` | 24% | Scraper Playwright (necesita más tests) |
+
+Los tests se enfocan en:
+- ✓ Parsing correcto de HTML de trenes
+- ✓ Estructura de datos de trenes y tarifas
+- ✓ Integración del endpoint FastAPI
+- ✓ Validación de parámetros requeridos
+
 ### Tests disponibles
 
 #### `test_fixed_parser_train_lists.py`
@@ -180,3 +209,11 @@ Los tests utilizan mocks y fixtures en `tests/fixtures/renfe_response_sample.htm
 ### Parser independiente
 
 El parser (`app/parser.py`) con la función `parse_train_list_html()` es independiente y puede usarse para parsear HTML de Renfe sin necesidad de Playwright. Es agnóstico de si es ida o vuelta.
+
+### Limpieza
+
+Para limpiar archivos temporales y caches:
+
+```bash
+make clean  # Limpia __pycache__, .pytest_cache, htmlcov, etc.
+```
