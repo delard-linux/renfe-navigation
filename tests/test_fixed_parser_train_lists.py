@@ -1,7 +1,7 @@
 """
-Test unitario para el parser de trenes de Renfe
+Tests unitarios del parser de listas de trenes de Renfe usando fixtures fijas
 
-Ejecutar con: pytest tests/test_parser.py -v
+Ejecutar con: pytest tests/test_fixed_parser_train_lists.py -v
 O todos los tests: pytest tests/ -v
 """
 

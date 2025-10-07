@@ -106,186 +106,23 @@ def _find_station(station_name: str) -> dict:
 
 
 async def _extract_results(page) -> List[TrainModel]:
-    """Extrae los trenes con todas sus tarifas del HTML de Renfe"""
-    trains: List[TrainModel] = []
+    """Extrae el contenido HTML y lo parsea con el parser independiente testeado."""
+    # Nota para mantenedores: Toda la lógica de parsing de HTML está centralizada
+    # en app/parser.py (función parse_train_list_html). Este scraper solo obtiene
+    # el HTML con Playwright y delega el análisis al parser probado por tests.
     logger.info("[SCRAPER] Esperando carga de resultados...")
     await page.wait_for_load_state("networkidle")
+    html = await page.content()
+    try:
+        # Import local para evitar importaciones circulares en tiempo de test/ejecución
+        from .parser import parse_train_list_html  # type: ignore
 
-    # Buscar el contenedor principal con ID listaTrenesTBodyIda o listaTrenesTBodyVuelta
-    train_rows = page.locator("div.row.selectedTren")
-    count = await train_rows.count()
-    logger.info(f"[SCRAPER] Extrayendo datos de {count} trenes encontrados")
-
-    import re
-
-    for i in range(count):
-        row = train_rows.nth(i)
-        try:
-            # Extraer train_id del atributo id="tren_i_1"
-            train_id_attr = await row.get_attribute("id")
-            train_id = (
-                train_id_attr.replace("tren_", "") if train_id_attr else f"unknown_{i}"
-            )
-
-            # Extraer tipo de servicio de la imagen del tren
-            service_type = "Tren"
-            try:
-                img_alt = (
-                    await row.locator('img[alt*="Tipo de tren"]')
-                    .first()
-                    .get_attribute("alt")
-                )
-                if img_alt:
-                    # Extraer el tipo del alt: "Imagen de Tren. Tipo de tren AVE"
-                    match = re.search(r"Tipo de tren\s+(\w+)", img_alt)
-                    if match:
-                        service_type = match.group(1)
-            except Exception:
-                pass
-
-            # Extraer horarios de los h5
-            departure_time = ""
-            arrival_time = ""
-            try:
-                times = await row.locator('h5[aria-hidden="true"]').all_text_content()
-                if len(times) >= 2:
-                    departure_time = times[0].replace(" h", "").strip()
-                    arrival_time = times[1].replace(" h", "").strip()
-            except Exception:
-                pass
-
-            # Extraer duración
-            duration = ""
-            try:
-                duration_text = await row.locator(".text-number").first().text_content()
-                if duration_text:
-                    duration = duration_text.strip()
-            except Exception:
-                pass
-
-            # Extraer precio mínimo
-            price_from = 0.0
-            try:
-                price_text = (
-                    await row.locator(".precio-final").first().get_attribute("title")
-                )
-                if price_text:
-                    # "Precio desde 49,00"
-                    match = re.search(r"([\d,]+)", price_text)
-                    if match:
-                        price_from = float(match.group(1).replace(",", "."))
-            except Exception:
-                pass
-
-            # Extraer badges (etiquetas especiales)
-            badges = []
-            try:
-                badge_elements = await row.locator(
-                    ".badge-amarillo-junto, .badge-azul-junto"
-                ).all_text_content()
-                badges = [b.strip() for b in badge_elements if b.strip()]
-            except Exception:
-                pass
-
-            # Extraer tarifas disponibles
-            fares = []
-            try:
-                fare_cards = row.locator(".seleccion-resumen-bottom.card")
-                fare_count = await fare_cards.count()
-
-                for j in range(fare_count):
-                    fare_card = fare_cards.nth(j)
-                    try:
-                        # Nombre de la tarifa
-                        fare_name_elem = (
-                            await fare_card.locator(".card-header")
-                            .first()
-                            .text_content()
-                        )
-                        fare_name_parts = fare_name_elem.split()
-                        fare_name = (
-                            fare_name_parts[0] if fare_name_parts else "Desconocida"
-                        )
-
-                        # Precio de la tarifa
-                        fare_price = 0.0
-                        try:
-                            fare_price_attr = await fare_card.get_attribute(
-                                "data-precio-tarifa"
-                            )
-                            if fare_price_attr:
-                                fare_price = float(fare_price_attr.replace(",", "."))
-                        except Exception:
-                            pass
-
-                        # Código de tarifa
-                        fare_code = await fare_card.get_attribute("data-cod-tarifa")
-                        tp_enlace = await fare_card.get_attribute(
-                            "data-cod-tpenlacesilencio"
-                        )
-
-                        # Prestaciones/características
-                        features = []
-                        try:
-                            feature_items = await fare_card.locator(
-                                ".lista-opciones li"
-                            ).all_text_content()
-                            features = [f.strip() for f in feature_items if f.strip()]
-                        except Exception:
-                            pass
-
-                        fares.append(
-                            FareOption(
-                                name=fare_name,
-                                price=fare_price,
-                                currency="EUR",
-                                code=fare_code,
-                                tp_enlace=tp_enlace,
-                                features=features,
-                            )
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            f"[SCRAPER] Error extrayendo tarifa {j} del tren {train_id}: {e}"
-                        )
-                        continue
-            except Exception as e:
-                logger.warning(
-                    f"[SCRAPER] Error extrayendo tarifas del tren {train_id}: {e}"
-                )
-
-            # Verificar accesibilidad y eco-friendly
-            accessible = False
-            eco_friendly = False
-            try:
-                info_varios = await row.locator(".info-varios").first().text_content()
-                if info_varios:
-                    accessible = "Plaza H disponible" in info_varios
-                    eco_friendly = "Cero emisiones" in info_varios
-            except Exception:
-                pass
-
-            trains.append(
-                TrainModel(
-                    train_id=train_id,
-                    service_type=service_type,
-                    departure_time=departure_time,
-                    arrival_time=arrival_time,
-                    duration=duration,
-                    price_from=price_from,
-                    currency="EUR",
-                    fares=fares,
-                    badges=badges,
-                    accessible=accessible,
-                    eco_friendly=eco_friendly,
-                )
-            )
-
-        except Exception as e:
-            logger.warning(f"[SCRAPER] Error extrayendo tren {i}: {e}")
-            continue
-
-    return trains
+        trains = parse_train_list_html(html)
+        logger.info(f"[SCRAPER] Trenes extraídos: {len(trains)}")
+        return trains
+    except Exception as e:
+        logger.error(f"[SCRAPER] Error parseando HTML de resultados: {e}")
+        return []
 
 
 async def search_trains(

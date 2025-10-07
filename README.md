@@ -11,14 +11,14 @@ renfe-navigation/
 │   ├── renfe.py             # Scraper con Playwright
 │   ├── parser.py            # Parser HTML independiente
 │   └── resources/
-│       ├── estaciones.json  # Catálogo de estaciones
-│       └── train_response_example.json
+│       └── estaciones.json  # Catálogo de estaciones
 ├── tests/
-│   ├── conftest.py          # Configuración de pytest
-│   ├── test_parser.py       # Tests del parser HTML
+│   ├── conftest.py                      # Configuración de pytest
+│   ├── test_fixed_parser_train_lists.py # Tests del parser HTML
 │   └── fixtures/
-│       └── train_list_sample.html  # Datos de prueba
+│       └── train_list_sample.html       # Datos de prueba
 ├── pytest.ini               # Configuración de pytest
+├── Makefile                 # Comandos útiles
 ├── requirements.txt
 └── README.md
 ```
@@ -72,8 +72,6 @@ Cada tren incluye:
 - `badges[]`: Etiquetas especiales (Precio más bajo, Más rápido)
 - `accessible`: Plaza H disponible
 - `eco_friendly`: Cero emisiones
-
-Ver ejemplo completo en `app/resources/train_response_example.json`
 
 ### Logging de Respuestas
 
@@ -142,20 +140,20 @@ make test-verbose
 
 ```bash
 # Solo tests del parser
-pytest tests/test_parser.py -v
+pytest tests/test_fixed_parser_train_lists.py -v
 
 # Un test específico
-pytest tests/test_parser.py::test_parse_train_list_html_extracts_fares -v
+pytest tests/test_fixed_parser_train_lists.py::test_parse_train_list_html_extracts_fares -v
 
 # Tests con salida detallada (útil para debugging)
-pytest tests/test_parser.py::test_parse_train_list_html_display_results -v -s
+pytest tests/test_fixed_parser_train_lists.py::test_parse_train_list_html_display_results -v -s
 ```
 
 ### Tests disponibles
 
-#### `test_parser.py`
+#### `test_fixed_parser_train_lists.py`
 
-Tests del parser de HTML de Renfe (`app/parser.py`):
+Tests del parser de HTML de Renfe (`app/parser.py`) con datos fixture fijos:
 
 - ✓ Parsea correctamente la estructura de trenes
 - ✓ Extrae información básica (horarios, duración, precios)
