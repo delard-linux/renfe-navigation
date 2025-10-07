@@ -165,6 +165,18 @@ Tests del parser de HTML de Renfe (`app/parser.py`) con datos fixture fijos:
 
 Los tests utilizan fixtures de datos reales en `tests/fixtures/train_list_sample.html`
 
+#### `test_api_endpoint.py`
+
+Tests del endpoint FastAPI (`/trains`) usando fixtures de respuestas reales:
+
+- ✓ Verifica estructura de respuesta del endpoint
+- ✓ Valida número de trenes parseados
+- ✓ Comprueba estructura de datos de trenes
+- ✓ Prueba endpoint con fecha de vuelta
+- ✓ Valida parámetros requeridos
+
+Los tests utilizan mocks y fixtures en `tests/fixtures/renfe_response_sample.html`
+
 ### Parser independiente
 
 El parser (`app/parser.py`) con la función `parse_train_list_html()` es independiente y puede usarse para parsear HTML de Renfe sin necesidad de Playwright. Es agnóstico de si es ida o vuelta.
