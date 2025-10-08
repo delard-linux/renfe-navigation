@@ -447,62 +447,87 @@ async def search_trains_flow(
             )
             await page.wait_for_timeout(500)
 
-            # Rellenar fecha de ida usando JavaScript
-            # El date picker de Renfe usa un web component complejo,
-            # es más confiable usar JS para establecer los valores
-            logger.info(
-                f"[FLOW] Configurando fechas con JavaScript: ida={date_out_formatted}, vuelta={date_return_formatted if date_return else 'N/A'}"
-            )
+            # Interactuar con el date picker de Renfe correctamente
+            logger.info(f"[FLOW] Configurando fecha de ida: {date_out_formatted}")
 
             try:
-                # Usar JavaScript para establecer las fechas en los campos ocultos
-                # que el formulario realmente usa
+                # Hacer clic en el campo de fecha de ida para abrir el date picker
+                await page.click("#first-input", timeout=5000)
+                await page.wait_for_timeout(1000)
+
+                # Usar JavaScript para establecer la fecha y disparar eventos
                 await page.evaluate(f"""
-                    // Establecer fecha de ida
                     const firstInput = document.querySelector('#first-input');
                     if (firstInput) {{
                         firstInput.value = '{date_out_formatted}';
-                        firstInput.setAttribute('value', '{date_out_formatted}');
-                        // Disparar evento change
-                        firstInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                        firstInput.setAttribute('aria-label', 'Fecha ida {date_out_formatted}');
                         firstInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                        firstInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                        firstInput.dispatchEvent(new Event('blur', {{ bubbles: true }}));
                     }}
-                    
-                    // Establecer fecha de vuelta si existe
-                    const secondInput = document.querySelector('#second-input');
-                    if (secondInput && '{date_return_formatted}') {{
-                        secondInput.value = '{date_return_formatted}';
-                        secondInput.setAttribute('value', '{date_return_formatted}');
-                        secondInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                        secondInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                    }}
-                    
-                    // También establecer en los campos ocultos que usa el form
                     const fechaIdaField = document.querySelector('input[name="FechaIdaSel"]');
-                    if (fechaIdaField) {{
-                        fechaIdaField.value = '{date_out_formatted}';
-                    }}
-                    
-                    const fechaVueltaField = document.querySelector('input[name="FechaVueltaSel"]');
-                    if (fechaVueltaField && '{date_return_formatted}') {{
-                        fechaVueltaField.value = '{date_return_formatted}';
-                    }}
+                    if (fechaIdaField) {{ fechaIdaField.value = '{date_out_formatted}'; }}
                 """)
-                await page.wait_for_timeout(1000)
-                logger.info("[FLOW] Fechas configuradas con JavaScript")
-            except Exception as e:
-                logger.error(f"[FLOW] Error configurando fechas con JavaScript: {e}")
-                raise
 
-            # Tomar screenshot para verificar que el formulario está listo
-            try:
-                screenshot_path = os.path.join(RESPONSES_DIR, "debug_form_ready.png")
-                await page.screenshot(path=screenshot_path)
-                logger.info(
-                    "[FLOW DEBUG] Screenshot del formulario listo: debug_form_ready.png"
-                )
-            except Exception:
-                pass
+                await page.wait_for_timeout(500)
+
+                # Cerrar el date picker presionando Escape
+                await page.keyboard.press("Escape")
+                await page.wait_for_timeout(500)
+
+                logger.info(f"[FLOW] Fecha de ida configurada: {date_out_formatted}")
+
+                # Si hay fecha de vuelta, configurarla
+                if date_return_formatted:
+                    logger.info(
+                        f"[FLOW] Configurando fecha de vuelta: {date_return_formatted}"
+                    )
+
+                    await page.click("#second-input", timeout=5000)
+                    await page.wait_for_timeout(1000)
+
+                    await page.evaluate(f"""
+                        const secondInput = document.querySelector('#second-input');
+                        if (secondInput) {{
+                            secondInput.value = '{date_return_formatted}';
+                            secondInput.setAttribute('aria-label', 'Fecha vuelta {date_return_formatted}');
+                            secondInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                            secondInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                            secondInput.dispatchEvent(new Event('blur', {{ bubbles: true }}));
+                        }}
+                        const fechaVueltaField = document.querySelector('input[name="FechaVueltaSel"]');
+                        if (fechaVueltaField) {{ fechaVueltaField.value = '{date_return_formatted}'; }}
+                    """)
+
+                    await page.wait_for_timeout(500)
+                    await page.keyboard.press("Escape")
+                    await page.wait_for_timeout(500)
+
+                    logger.info(
+                        f"[FLOW] Fecha de vuelta configurada: {date_return_formatted}"
+                    )
+
+                # Verificar que los campos tienen las fechas
+                fecha_ida_value = await page.input_value("#first-input")
+                logger.info(f"[FLOW DEBUG] Fecha ida en input: {fecha_ida_value}")
+
+                if date_return_formatted:
+                    fecha_vuelta_value = await page.input_value("#second-input")
+                    logger.info(
+                        f"[FLOW DEBUG] Fecha vuelta en input: {fecha_vuelta_value}"
+                    )
+
+            except Exception as e:
+                logger.error(f"[FLOW] Error configurando fechas: {e}")
+                try:
+                    error_screenshot = os.path.join(
+                        RESPONSES_DIR, "debug_datepicker_error.png"
+                    )
+                    await page.screenshot(path=error_screenshot)
+                    logger.error("[FLOW] Screenshot error: debug_datepicker_error.png")
+                except Exception:
+                    pass
+                raise
 
             # Configurar número de pasajeros
             logger.info(f"[FLOW] Configurando pasajeros: {adults}")
