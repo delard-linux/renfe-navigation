@@ -28,8 +28,8 @@ PLAYWRIGHT_CONFIG = {
     "record_video": os.getenv("PLAYWRIGHT_VIDEO", "false").lower() == "true",
     # Viewport size
     "viewport": {
-        "width": int(os.getenv("PLAYWRIGHT_WIDTH", "2560")),
-        "height": int(os.getenv("PLAYWRIGHT_HEIGHT", "1440")),
+        "width": int(os.getenv("PLAYWRIGHT_WIDTH", "1920")),
+        "height": int(os.getenv("PLAYWRIGHT_HEIGHT", "1080")),
     },
 }
 

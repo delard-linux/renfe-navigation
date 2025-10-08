@@ -323,24 +323,47 @@ async def search_trains_flow(
     date_return: Optional[str],
     adults: int,
     headless: bool = True,
+    viewport_width: int = 1280,
+    viewport_height: int = 720,
 ) -> str:
-    """Realiza el flujo completo desde la página inicial de Renfe hasta la búsqueda"""
+    """
+    Realiza el flujo completo desde la página inicial de Renfe hasta la búsqueda.
+
+    Args:
+        origin: Estación de origen
+        destination: Estación de destino
+        date_out: Fecha de ida (YYYY-MM-DD)
+        date_return: Fecha de vuelta opcional (YYYY-MM-DD)
+        adults: Número de pasajeros adultos
+        headless: Si True, ejecuta sin interfaz gráfica
+        viewport_width: Ancho del viewport
+        viewport_height: Alto del viewport
+
+    Returns:
+        Ruta del archivo de respuesta guardado
+    """
     logger.info("[FLOW] Iniciando navegador Chromium desde página inicial")
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=headless,
-            args=[
-                "--start-maximized",  # Maximizar ventana
-                "--window-size=2560,1440",  # Tamaño de ventana
+        # Configurar args del navegador para modo visible
+        browser_args = []
+        if not headless:
+            browser_args = [
+                "--start-maximized",
+                f"--window-size={viewport_width},{viewport_height}",
             ]
-            if not headless
-            else [],
-        )
-        context = await browser.new_context(
-            viewport={"width": 2560, "height": 1440} if not headless else None,
-            no_viewport=headless,  # Usar tamaño completo en modo visible
-        )
+
+        browser = await p.chromium.launch(headless=headless, args=browser_args)
+
+        # Configurar contexto con viewport
+        context_options = {}
+        if not headless:
+            context_options = {
+                "viewport": {"width": viewport_width, "height": viewport_height},
+                "no_viewport": False,
+            }
+
+        context = await browser.new_context(**context_options)
         page = await context.new_page()
 
         try:
