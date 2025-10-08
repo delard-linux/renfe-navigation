@@ -140,6 +140,7 @@ async def get_trains_flow(
             date_out=date_out,
             date_return=date_return,
             adults=adults,
+            playwright={},  # usa config por defecto; se puede parametrizar por env
         )
 
         elapsed = (datetime.now() - start_time).total_seconds()

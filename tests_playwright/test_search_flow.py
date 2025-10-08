@@ -41,9 +41,12 @@ async def test_search_trains_flow_ourense_madrid(playwright_viewport):
         date_out="2025-10-14",
         date_return=None,
         adults=1,
-        headless=False,  # Forzar visible en este test
-        viewport_width=width,
-        viewport_height=height,
+        playwright={
+            "headless": False,
+            "viewport_width": width,
+            "viewport_height": height,
+            "slow_mo": 2000,
+        },
     )
 
     # Verificaciones
@@ -82,9 +85,12 @@ async def test_search_trains_flow_barcelona_madrid_roundtrip(playwright_viewport
         date_out="2025-10-20",
         date_return="2025-11-22",
         adults=2,
-        headless=False,
-        viewport_width=width,
-        viewport_height=height,
+        playwright={
+            "headless": False,
+            "viewport_width": width,
+            "viewport_height": height,
+            "slow_mo": 2000,
+        },
     )
 
     assert filepath is not None
@@ -113,9 +119,12 @@ async def test_search_trains_flow_multiple_passengers(playwright_viewport):
         date_out="2025-11-01",
         date_return=None,
         adults=4,
-        headless=False,
-        viewport_width=width,
-        viewport_height=height,
+        playwright={
+            "headless": False,
+            "viewport_width": width,
+            "viewport_height": height,
+            "slow_mo": 2000,
+        },
     )
 
     assert filepath is not None
@@ -142,9 +151,12 @@ async def test_search_trains_flow_valencia_alicante(playwright_viewport):
         date_out="2025-10-25",
         date_return=None,
         adults=1,
-        headless=False,
-        viewport_width=width,
-        viewport_height=height,
+        playwright={
+            "headless": False,
+            "viewport_width": width,
+            "viewport_height": height,
+            "slow_mo": 2000,
+        },
     )
 
     assert filepath is not None

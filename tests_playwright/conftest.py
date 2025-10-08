@@ -8,12 +8,20 @@ que usan Playwright, habilitando el modo debug por defecto.
 import pytest
 import sys
 import os
+import logging
 
 # Añadir directorio raíz al path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 # Importar configuración de Playwright
 import playwright_config as pw_config
+
+# Configurar logging para tests de Playwright
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    force=True,  # Forzar reconfiguración del logging
+)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -25,13 +33,28 @@ def configure_playwright_debug():
     """
     # Activar modo debug (headless=False) para tests_playwright
     os.environ["PLAYWRIGHT_HEADLESS"] = "false"
-    os.environ["PLAYWRIGHT_SLOWMO"] = "3000"  # Ralentizar 1000ms por acción
+    os.environ["PLAYWRIGHT_SLOWMO"] = "2000"  # Ralentizar 2000ms por acción
+
+    # Configurar logging específico para tests
+    logger = logging.getLogger("app.renfe")
+    logger.setLevel(logging.INFO)
+
+    # Asegurar que los logs se muestren en consola
+    if not logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.INFO)
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
     print("\n" + "=" * 60)
     print("🎭 PLAYWRIGHT DEBUG MODE ACTIVADO")
     print("=" * 60)
     print("⚙️  headless: False (navegador visible)")
-    print("⚙️  slow_mo: 1000ms")
+    print("⚙️  slow_mo: 2000ms")
+    print("⚙️  logging: INFO level activado")
     print(
         f"⚙️  viewport: {pw_config.PLAYWRIGHT_CONFIG['viewport']['width']}x{pw_config.PLAYWRIGHT_CONFIG['viewport']['height']}"
     )

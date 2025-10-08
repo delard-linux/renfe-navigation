@@ -322,9 +322,7 @@ async def search_trains_flow(
     date_out: str,
     date_return: Optional[str],
     adults: int,
-    headless: bool = True,
-    viewport_width: int = 1280,
-    viewport_height: int = 720,
+    playwright: Optional[dict] = None,
 ) -> str:
     """
     Realiza el flujo completo desde la página inicial de Renfe hasta la búsqueda.
@@ -335,9 +333,12 @@ async def search_trains_flow(
         date_out: Fecha de ida (YYYY-MM-DD)
         date_return: Fecha de vuelta opcional (YYYY-MM-DD)
         adults: Número de pasajeros adultos
-        headless: Si True, ejecuta sin interfaz gráfica
-        viewport_width: Ancho del viewport
-        viewport_height: Alto del viewport
+        playwright: Diccionario de configuración Playwright: {
+            'headless': bool,
+            'viewport_width': int,
+            'viewport_height': int,
+            'slow_mo': int
+        }
 
     Returns:
         Ruta del archivo de respuesta guardado
@@ -345,7 +346,14 @@ async def search_trains_flow(
     logger.info("[FLOW] Iniciando navegador Chromium desde página inicial")
 
     async with async_playwright() as p:
-        # Configurar args del navegador para modo visible
+        # Extraer configuración de Playwright
+        cfg = playwright or {}
+        headless = bool(cfg.get("headless", True))
+        viewport_width = int(cfg.get("viewport_width", 1280))
+        viewport_height = int(cfg.get("viewport_height", 720))
+        slow_mo = int(cfg.get("slow_mo", 0))
+
+        # Configurar args del navegador
         browser_args = []
         if not headless:
             browser_args = [
@@ -353,9 +361,11 @@ async def search_trains_flow(
                 f"--window-size={viewport_width},{viewport_height}",
             ]
 
-        browser = await p.chromium.launch(headless=headless, args=browser_args)
+        browser = await p.chromium.launch(
+            headless=headless, args=browser_args, slow_mo=slow_mo
+        )
 
-        # Configurar contexto con viewport
+        # Configurar contexto con viewport si no es headless
         context_options = {}
         if not headless:
             context_options = {
