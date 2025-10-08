@@ -6,10 +6,7 @@ import logging
 from datetime import datetime
 import json
 
-try:
-    from .renfe import search_trains, search_trains_flow
-except ImportError:
-    from renfe import search_trains, search_trains_flow
+from .renfe import search_trains, search_trains_flow
 
 # Configurar logging
 logging.basicConfig(
