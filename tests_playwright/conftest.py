@@ -7,10 +7,8 @@ que usan Playwright, habilitando el modo debug por defecto.
 
 import pytest
 import os
+import sys
 import logging
-
-# Importar configuración de Playwright
-import playwright_config as pw_config
 
 # Configurar logging para tests de Playwright
 logging.basicConfig(
@@ -18,6 +16,10 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     force=True,  # Forzar reconfiguración del logging
 )
+
+# Configuración de Playwright para tests E2E (modo debug)
+PLAYWRIGHT_VIEWPORT_WIDTH = 1920
+PLAYWRIGHT_VIEWPORT_HEIGHT = 1080
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -54,9 +56,7 @@ def configure_playwright_debug():
     print("⚙️  headless: False (navegador visible)")
     print("⚙️  slow_mo: 2000ms")
     print("⚙️  logging: INFO level activado")
-    print(
-        f"⚙️  viewport: {pw_config.PLAYWRIGHT_CONFIG['viewport']['width']}x{pw_config.PLAYWRIGHT_CONFIG['viewport']['height']}"
-    )
+    print(f"⚙️  viewport: {PLAYWRIGHT_VIEWPORT_WIDTH}x{PLAYWRIGHT_VIEWPORT_HEIGHT}")
     print("=" * 60 + "\n")
 
     yield
@@ -75,7 +75,4 @@ def playwright_viewport():
     Returns:
         tuple: (width, height) del viewport configurado
     """
-    return (
-        pw_config.PLAYWRIGHT_CONFIG["viewport"]["width"],
-        pw_config.PLAYWRIGHT_CONFIG["viewport"]["height"],
-    )
+    return (PLAYWRIGHT_VIEWPORT_WIDTH, PLAYWRIGHT_VIEWPORT_HEIGHT)
