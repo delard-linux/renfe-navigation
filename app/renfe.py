@@ -322,12 +322,13 @@ async def search_trains_flow(
     date_out: str,
     date_return: Optional[str],
     adults: int,
+    headless: bool = True,
 ) -> str:
     """Realiza el flujo completo desde la página inicial de Renfe hasta la búsqueda"""
     logger.info("[FLOW] Iniciando navegador Chromium desde página inicial")
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        browser = await p.chromium.launch(headless=headless)
         context = await browser.new_context()
         page = await context.new_page()
 
@@ -337,6 +338,45 @@ async def search_trains_flow(
             await page.goto(
                 "https://www.renfe.com/es/es", wait_until="domcontentloaded"
             )
+
+            # Esperar un momento para que cargue la página
+            await page.wait_for_timeout(2000)
+
+            # Aceptar cookies si aparece el popup
+            logger.info("[FLOW] Verificando popup de cookies")
+            try:
+                # Intentar múltiples selectores para el botón de aceptar cookies
+                cookie_selectors = [
+                    "button#onetrust-accept-btn-handler",
+                    "button.onetrust-close-btn-handler",
+                    "button:has-text('Aceptar')",
+                    "button:has-text('Aceptar todas')",
+                    "button:has-text('Accept')",
+                    ".cookies-banner button",
+                    "#cookies-accept-btn",
+                ]
+
+                clicked_cookies = False
+                for selector in cookie_selectors:
+                    try:
+                        cookie_btn = page.locator(selector).first
+                        if await cookie_btn.is_visible(timeout=2000):
+                            await cookie_btn.click()
+                            await page.wait_for_timeout(1000)
+                            logger.info(
+                                f"[FLOW] Cookies aceptadas con selector: {selector}"
+                            )
+                            clicked_cookies = True
+                            break
+                    except Exception:
+                        continue
+
+                if not clicked_cookies:
+                    logger.info(
+                        "[FLOW] No se encontró popup de cookies o ya fue aceptado"
+                    )
+            except Exception as e:
+                logger.warning(f"[FLOW] Error manejando cookies: {e}")
 
             # Buscar estaciones en el catálogo
             origin_station = _find_station(origin)
@@ -373,131 +413,62 @@ async def search_trains_flow(
             )
             await page.wait_for_timeout(500)
 
-            # Rellenar fecha de ida usando el date picker
+            # Rellenar fecha de ida usando JavaScript
+            # El date picker de Renfe usa un web component complejo,
+            # es más confiable usar JS para establecer los valores
             logger.info(
-                f"[FLOW] Abriendo date picker para fecha ida: {date_out_formatted}"
-            )
-            await page.click("#first-input")
-            await page.wait_for_timeout(1000)  # Esperar a que aparezca el calendario
-
-            # Seleccionar la fecha en el date picker
-            # Primero, verificar si necesitamos cambiar de mes
-            logger.info("[FLOW] Seleccionando fecha de ida en el calendario")
-
-            # Extraer día, mes y año de la fecha
-            day_out = date_out_obj.day
-            month_out = date_out_obj.month
-            year_out = date_out_obj.year
-
-            # Navegar hasta el mes correcto si es necesario
-            # El calendario muestra el mes actual por defecto
-            current_date = datetime.now()
-            months_diff = (year_out - current_date.year) * 12 + (
-                month_out - current_date.month
+                f"[FLOW] Configurando fechas con JavaScript: ida={date_out_formatted}, vuelta={date_return_formatted if date_return else 'N/A'}"
             )
 
-            if months_diff > 0:
-                # Hacer clic en el botón de siguiente mes las veces necesarias
-                for _ in range(months_diff):
-                    next_month_btn = (
-                        page.locator("button[aria-label*='next']")
-                        .or_(page.locator("button.rf-daterange-alternative__btn--next"))
-                        .first
-                    )
-                    await next_month_btn.click()
-                    await page.wait_for_timeout(300)
-
-            # Hacer clic en el día específico
-            # Buscar el día en el calendario que está visible
             try:
-                # Intentar diferentes selectores para el día
-                day_button = page.locator(f"td button:has-text('{day_out}')").first
-                await day_button.click()
-                await page.wait_for_timeout(500)
+                # Usar JavaScript para establecer las fechas en los campos ocultos
+                # que el formulario realmente usa
+                await page.evaluate(f"""
+                    // Establecer fecha de ida
+                    const firstInput = document.querySelector('#first-input');
+                    if (firstInput) {{
+                        firstInput.value = '{date_out_formatted}';
+                        firstInput.setAttribute('value', '{date_out_formatted}');
+                        // Disparar evento change
+                        firstInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                        firstInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                    }}
+                    
+                    // Establecer fecha de vuelta si existe
+                    const secondInput = document.querySelector('#second-input');
+                    if (secondInput && '{date_return_formatted}') {{
+                        secondInput.value = '{date_return_formatted}';
+                        secondInput.setAttribute('value', '{date_return_formatted}');
+                        secondInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                        secondInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                    }}
+                    
+                    // También establecer en los campos ocultos que usa el form
+                    const fechaIdaField = document.querySelector('input[name="FechaIdaSel"]');
+                    if (fechaIdaField) {{
+                        fechaIdaField.value = '{date_out_formatted}';
+                    }}
+                    
+                    const fechaVueltaField = document.querySelector('input[name="FechaVueltaSel"]');
+                    if (fechaVueltaField && '{date_return_formatted}') {{
+                        fechaVueltaField.value = '{date_return_formatted}';
+                    }}
+                """)
+                await page.wait_for_timeout(1000)
+                logger.info("[FLOW] Fechas configuradas con JavaScript")
             except Exception as e:
-                logger.warning(
-                    "[FLOW] No se pudo hacer clic en el día %d, intentando selector alternativo: %s",
-                    day_out,
-                    e,
-                )
-                # Alternativa: buscar por texto exacto
-                day_button = page.locator("button").filter(has_text=str(day_out)).first
-                await day_button.click()
-                await page.wait_for_timeout(500)
+                logger.error(f"[FLOW] Error configurando fechas con JavaScript: {e}")
+                raise
 
-            # Rellenar fecha de vuelta si existe
-            if date_return_formatted:
+            # Tomar screenshot para verificar que el formulario está listo
+            try:
+                screenshot_path = os.path.join(RESPONSES_DIR, "debug_form_ready.png")
+                await page.screenshot(path=screenshot_path)
                 logger.info(
-                    f"[FLOW] Abriendo date picker para fecha vuelta: {date_return_formatted}"
+                    "[FLOW DEBUG] Screenshot del formulario listo: debug_form_ready.png"
                 )
-
-                # Si ya está en modo "ida y vuelta", el calendario debería estar visible
-                # Si no, hacer clic en el radio button de "Viaje de ida y vuelta"
-                try:
-                    return_radio = (
-                        page.locator("input[value='roundtrip']")
-                        .or_(page.locator("label:has-text('Viaje de ida y vuelta')"))
-                        .first
-                    )
-                    await return_radio.click()
-                    await page.wait_for_timeout(500)
-                except Exception:
-                    logger.info(
-                        "[FLOW] Ya está en modo ida y vuelta o no se pudo cambiar"
-                    )
-
-                # Extraer día, mes y año de la fecha de vuelta
-                day_return = date_return_obj.day
-                month_return = date_return_obj.month
-                year_return = date_return_obj.year
-
-                # Navegar hasta el mes correcto para la vuelta
-                months_diff_return = (year_return - year_out) * 12 + (
-                    month_return - month_out
-                )
-
-                if months_diff_return > 0:
-                    for _ in range(months_diff_return):
-                        next_month_btn = (
-                            page.locator("button[aria-label*='next']")
-                            .or_(
-                                page.locator(
-                                    "button.rf-daterange-alternative__btn--next"
-                                )
-                            )
-                            .first
-                        )
-                        await next_month_btn.click()
-                        await page.wait_for_timeout(300)
-
-                # Hacer clic en el día de vuelta
-                try:
-                    day_button_return = page.locator(
-                        f"td button:has-text('{day_return}')"
-                    ).last
-                    await day_button_return.click()
-                    await page.wait_for_timeout(500)
-                except Exception as e:
-                    logger.warning(
-                        "[FLOW] No se pudo hacer clic en el día de vuelta %d: %s",
-                        day_return,
-                        e,
-                    )
-                    day_button_return = (
-                        page.locator("button").filter(has_text=str(day_return)).last
-                    )
-                    await day_button_return.click()
-                    await page.wait_for_timeout(500)
-
-                # Hacer clic en el botón "Aceptar" del date picker
-                logger.info("[FLOW] Confirmando selección de fechas")
-                accept_btn = (
-                    page.locator("button:has-text('Aceptar')")
-                    .or_(page.locator("button.rf-daterange-alternative__btn-accept"))
-                    .first
-                )
-                await accept_btn.click()
-                await page.wait_for_timeout(500)
+            except Exception:
+                pass
 
             # Configurar número de pasajeros
             logger.info(f"[FLOW] Configurando pasajeros: {adults}")
@@ -510,9 +481,52 @@ async def search_trains_flow(
                 )
 
             # Hacer clic en el botón de buscar
-            logger.info("[FLOW] Haciendo clic en buscar billetes")
-            search_button = page.locator("button[type='submit']").first
-            await search_button.click()
+            logger.info("[FLOW] Buscando botón de buscar billetes")
+
+            # Intentar múltiples selectores para el botón de buscar
+            search_selectors = [
+                "button[type='submit']",
+                "button:has-text('Buscar')",
+                "button:has-text('Buscar billetes')",
+                ".rf-btn--submit",
+                "input[type='submit']",
+                "button.btn-search",
+            ]
+
+            clicked_search = False
+            for selector in search_selectors:
+                try:
+                    search_btn = page.locator(selector).first
+                    if await search_btn.is_visible(timeout=2000):
+                        logger.info(
+                            f"[FLOW DEBUG] Encontrado botón de buscar con selector: {selector}"
+                        )
+                        await search_btn.click()
+                        clicked_search = True
+                        logger.info("[FLOW] Click en buscar billetes exitoso")
+                        break
+                except Exception as e:
+                    logger.debug(
+                        f"[FLOW DEBUG] Selector de botón '{selector}' falló: {e}"
+                    )
+                    continue
+
+            if not clicked_search:
+                logger.error("[FLOW DEBUG] No se encontró botón de buscar")
+                # Intentar hacer submit del formulario directamente
+                try:
+                    await page.evaluate("""
+                        const form = document.querySelector('form');
+                        if (form) {
+                            form.submit();
+                        }
+                    """)
+                    logger.info("[FLOW] Submit del formulario ejecutado con JavaScript")
+                except Exception as e:
+                    logger.error(f"[FLOW] Error haciendo submit del formulario: {e}")
+                    raise Exception(
+                        "No se pudo hacer clic en buscar ni submit del formulario"
+                    )
 
             # Esperar a que cargue la página de resultados
             await page.wait_for_load_state("networkidle")
