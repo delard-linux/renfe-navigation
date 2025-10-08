@@ -17,9 +17,13 @@ logging.basicConfig(
     force=True,  # Forzar reconfiguración del logging
 )
 
-# Configuración de Playwright para tests E2E (modo debug)
-PLAYWRIGHT_VIEWPORT_WIDTH = 1920
-PLAYWRIGHT_VIEWPORT_HEIGHT = 1080
+# Configuración estándar de Playwright para todos los tests E2E
+PLAYWRIGHT_CONFIG = {
+    "headless": False,
+    "viewport_width": 1920,
+    "viewport_height": 1080,
+    "slow_mo": 2000,
+}
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -56,7 +60,7 @@ def configure_playwright_debug():
     print("⚙️  headless: False (navegador visible)")
     print("⚙️  slow_mo: 2000ms")
     print("⚙️  logging: INFO level activado")
-    print(f"⚙️  viewport: {PLAYWRIGHT_VIEWPORT_WIDTH}x{PLAYWRIGHT_VIEWPORT_HEIGHT}")
+    print(f"⚙️  viewport: {PLAYWRIGHT_CONFIG['viewport_width']}x{PLAYWRIGHT_CONFIG['viewport_height']}")
     print("=" * 60 + "\n")
 
     yield
@@ -68,11 +72,11 @@ def configure_playwright_debug():
 
 
 @pytest.fixture(scope="session")
-def playwright_viewport():
+def playwright_config():
     """
-    Fixture que proporciona la configuración de viewport para los tests.
+    Fixture que proporciona la configuración completa de Playwright para los tests.
 
     Returns:
-        tuple: (width, height) del viewport configurado
+        dict: Configuración de Playwright con headless, viewport y slow_mo
     """
-    return (PLAYWRIGHT_VIEWPORT_WIDTH, PLAYWRIGHT_VIEWPORT_HEIGHT)
+    return PLAYWRIGHT_CONFIG.copy()

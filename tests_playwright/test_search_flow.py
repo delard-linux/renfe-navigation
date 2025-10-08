@@ -15,7 +15,7 @@ from app.renfe import search_trains_flow
 
 
 @pytest.mark.asyncio
-async def test_search_trains_flow_ourense_madrid(playwright_viewport):
+async def test_search_trains_flow_ourense_madrid(playwright_config):
     """
     Test del flujo completo: Ourense -> Madrid (solo ida).
 
@@ -28,8 +28,6 @@ async def test_search_trains_flow_ourense_madrid(playwright_viewport):
     """
     print("\n🚂 Test: Ourense -> Madrid (solo ida)")
 
-    width, height = playwright_viewport
-
     # Ejecutar el flujo (usará configuración de conftest.py)
     filepath = await search_trains_flow(
         origin="OURENSE",
@@ -37,12 +35,7 @@ async def test_search_trains_flow_ourense_madrid(playwright_viewport):
         date_out="2025-10-14",
         date_return=None,
         adults=1,
-        playwright={
-            "headless": False,
-            "viewport_width": width,
-            "viewport_height": height,
-            "slow_mo": 2000,
-        },
+        playwright=playwright_config,
     )
 
     # Verificaciones
@@ -63,7 +56,7 @@ async def test_search_trains_flow_ourense_madrid(playwright_viewport):
 
 
 @pytest.mark.asyncio
-async def test_search_trains_flow_barcelona_madrid_roundtrip(playwright_viewport):
+async def test_search_trains_flow_barcelona_madrid_roundtrip(playwright_config):
     """
     Test del flujo completo: Barcelona -> Madrid (ida y vuelta).
 
@@ -73,20 +66,13 @@ async def test_search_trains_flow_barcelona_madrid_roundtrip(playwright_viewport
     """
     print("\n🚂 Test: Barcelona -> Madrid (ida y vuelta)")
 
-    width, height = playwright_viewport
-
     filepath = await search_trains_flow(
         origin="BARCELONA",
         destination="MADRID",
         date_out="2025-10-20",
-        date_return="2025-11-22",
+        date_return="2025-12-22",
         adults=2,
-        playwright={
-            "headless": False,
-            "viewport_width": width,
-            "viewport_height": height,
-            "slow_mo": 2000,
-        },
+        playwright=playwright_config,
     )
 
     assert filepath is not None
@@ -97,7 +83,7 @@ async def test_search_trains_flow_barcelona_madrid_roundtrip(playwright_viewport
 
 
 @pytest.mark.asyncio
-async def test_search_trains_flow_multiple_passengers(playwright_viewport):
+async def test_search_trains_flow_multiple_passengers(playwright_config):
     """
     Test con múltiples pasajeros: Madrid -> Sevilla.
 
@@ -107,20 +93,13 @@ async def test_search_trains_flow_multiple_passengers(playwright_viewport):
     """
     print("\n🚂 Test: Madrid -> Sevilla (4 pasajeros)")
 
-    width, height = playwright_viewport
-
     filepath = await search_trains_flow(
         origin="MADRID",
         destination="SEVILLA",
         date_out="2025-11-01",
         date_return=None,
         adults=4,
-        playwright={
-            "headless": False,
-            "viewport_width": width,
-            "viewport_height": height,
-            "slow_mo": 2000,
-        },
+        playwright=playwright_config,
     )
 
     assert filepath is not None
@@ -131,7 +110,7 @@ async def test_search_trains_flow_multiple_passengers(playwright_viewport):
 
 @pytest.mark.asyncio
 @pytest.mark.slow
-async def test_search_trains_flow_valencia_alicante(playwright_viewport):
+async def test_search_trains_flow_valencia_alicante(playwright_config):
     """
     Test adicional: Valencia -> Alicante.
 
@@ -139,20 +118,13 @@ async def test_search_trains_flow_valencia_alicante(playwright_viewport):
     """
     print("\n🚂 Test: Valencia -> Alicante")
 
-    width, height = playwright_viewport
-
     filepath = await search_trains_flow(
         origin="VALENCIA",
         destination="ALICANTE",
         date_out="2025-10-25",
         date_return=None,
         adults=1,
-        playwright={
-            "headless": False,
-            "viewport_width": width,
-            "viewport_height": height,
-            "slow_mo": 2000,
-        },
+        playwright=playwright_config,
     )
 
     assert filepath is not None
