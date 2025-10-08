@@ -364,25 +364,150 @@ async def search_trains_flow(
             # Rellenar campo origen
             logger.info(f"[FLOW] Rellenando origen: {origin}")
             await page.fill("#origin", origin_station.get("desgEstacion", origin))
+            await page.wait_for_timeout(500)
 
             # Rellenar campo destino
             logger.info(f"[FLOW] Rellenando destino: {destination}")
             await page.fill(
                 "#destination", dest_station.get("desgEstacion", destination)
             )
+            await page.wait_for_timeout(500)
 
-            # Rellenar fecha de ida
-            logger.info(f"[FLOW] Rellenando fecha ida: {date_out_formatted}")
-            await page.fill("#first-input", date_out_formatted)
+            # Rellenar fecha de ida usando el date picker
+            logger.info(
+                f"[FLOW] Abriendo date picker para fecha ida: {date_out_formatted}"
+            )
+            await page.click("#first-input")
+            await page.wait_for_timeout(1000)  # Esperar a que aparezca el calendario
+
+            # Seleccionar la fecha en el date picker
+            # Primero, verificar si necesitamos cambiar de mes
+            logger.info("[FLOW] Seleccionando fecha de ida en el calendario")
+
+            # Extraer día, mes y año de la fecha
+            day_out = date_out_obj.day
+            month_out = date_out_obj.month
+            year_out = date_out_obj.year
+
+            # Navegar hasta el mes correcto si es necesario
+            # El calendario muestra el mes actual por defecto
+            current_date = datetime.now()
+            months_diff = (year_out - current_date.year) * 12 + (
+                month_out - current_date.month
+            )
+
+            if months_diff > 0:
+                # Hacer clic en el botón de siguiente mes las veces necesarias
+                for _ in range(months_diff):
+                    next_month_btn = (
+                        page.locator("button[aria-label*='next']")
+                        .or_(page.locator("button.rf-daterange-alternative__btn--next"))
+                        .first
+                    )
+                    await next_month_btn.click()
+                    await page.wait_for_timeout(300)
+
+            # Hacer clic en el día específico
+            # Buscar el día en el calendario que está visible
+            try:
+                # Intentar diferentes selectores para el día
+                day_button = page.locator(f"td button:has-text('{day_out}')").first
+                await day_button.click()
+                await page.wait_for_timeout(500)
+            except Exception as e:
+                logger.warning(
+                    "[FLOW] No se pudo hacer clic en el día %d, intentando selector alternativo: %s",
+                    day_out,
+                    e,
+                )
+                # Alternativa: buscar por texto exacto
+                day_button = page.locator("button").filter(has_text=str(day_out)).first
+                await day_button.click()
+                await page.wait_for_timeout(500)
 
             # Rellenar fecha de vuelta si existe
             if date_return_formatted:
-                logger.info(f"[FLOW] Rellenando fecha vuelta: {date_return_formatted}")
-                await page.fill("#second-input", date_return_formatted)
+                logger.info(
+                    f"[FLOW] Abriendo date picker para fecha vuelta: {date_return_formatted}"
+                )
+
+                # Si ya está en modo "ida y vuelta", el calendario debería estar visible
+                # Si no, hacer clic en el radio button de "Viaje de ida y vuelta"
+                try:
+                    return_radio = (
+                        page.locator("input[value='roundtrip']")
+                        .or_(page.locator("label:has-text('Viaje de ida y vuelta')"))
+                        .first
+                    )
+                    await return_radio.click()
+                    await page.wait_for_timeout(500)
+                except Exception:
+                    logger.info(
+                        "[FLOW] Ya está en modo ida y vuelta o no se pudo cambiar"
+                    )
+
+                # Extraer día, mes y año de la fecha de vuelta
+                day_return = date_return_obj.day
+                month_return = date_return_obj.month
+                year_return = date_return_obj.year
+
+                # Navegar hasta el mes correcto para la vuelta
+                months_diff_return = (year_return - year_out) * 12 + (
+                    month_return - month_out
+                )
+
+                if months_diff_return > 0:
+                    for _ in range(months_diff_return):
+                        next_month_btn = (
+                            page.locator("button[aria-label*='next']")
+                            .or_(
+                                page.locator(
+                                    "button.rf-daterange-alternative__btn--next"
+                                )
+                            )
+                            .first
+                        )
+                        await next_month_btn.click()
+                        await page.wait_for_timeout(300)
+
+                # Hacer clic en el día de vuelta
+                try:
+                    day_button_return = page.locator(
+                        f"td button:has-text('{day_return}')"
+                    ).last
+                    await day_button_return.click()
+                    await page.wait_for_timeout(500)
+                except Exception as e:
+                    logger.warning(
+                        "[FLOW] No se pudo hacer clic en el día de vuelta %d: %s",
+                        day_return,
+                        e,
+                    )
+                    day_button_return = (
+                        page.locator("button").filter(has_text=str(day_return)).last
+                    )
+                    await day_button_return.click()
+                    await page.wait_for_timeout(500)
+
+                # Hacer clic en el botón "Aceptar" del date picker
+                logger.info("[FLOW] Confirmando selección de fechas")
+                accept_btn = (
+                    page.locator("button:has-text('Aceptar')")
+                    .or_(page.locator("button.rf-daterange-alternative__btn-accept"))
+                    .first
+                )
+                await accept_btn.click()
+                await page.wait_for_timeout(500)
 
             # Configurar número de pasajeros
             logger.info(f"[FLOW] Configurando pasajeros: {adults}")
-            await page.fill("#adultos_", str(adults))
+            # El campo de pasajeros puede no ser directamente editable, verificar
+            try:
+                await page.fill("#adultos_", str(adults))
+            except Exception:
+                logger.info(
+                    "[FLOW] No se pudo rellenar pasajeros directamente, usando valor por defecto"
+                )
 
             # Hacer clic en el botón de buscar
             logger.info("[FLOW] Haciendo clic en buscar billetes")
