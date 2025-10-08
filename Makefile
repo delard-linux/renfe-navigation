@@ -15,36 +15,36 @@ help:
 	@echo "  make clean              - Limpiar archivos temporales"
 
 install:
-	pip install -r requirements.txt
-	python -m playwright install --with-deps
+	poetry install
+	poetry run playwright install
 
 test:
-	pytest
+	poetry run pytest
 
 test-verbose:
-	pytest -v
+	poetry run pytest -v
 
 test-display:
-	pytest tests/test_fixed_parser_train_lists.py::test_parse_train_list_html_display_results -v -s
+	poetry run pytest tests/test_fixed_parser_train_lists.py::test_parse_train_list_html_display_results -v -s
 
 test-cov:
-	pytest --cov=app tests/ --cov-report=term-missing
+	poetry run pytest --cov=app tests/ --cov-report=term-missing
 
 test-html:
-	pytest --cov=app tests/ --cov-report=html
+	poetry run pytest --cov=app tests/ --cov-report=html
 	@echo "Reporte HTML generado en htmlcov/index.html"
 
 test-failed:
-	pytest --lf -v
+	poetry run pytest --lf -v
 
 test-playwright:
-	pytest tests_playwright/ -v -s
+	poetry run pytest tests_playwright/ -v -s
 
 test-playwright-one:
-	pytest tests_playwright/test_search_flow.py::test_search_trains_flow_ourense_madrid -v -s
+	poetry run pytest tests_playwright/test_search_flow.py::test_search_trains_flow_ourense_madrid -v -s
 
 run:
-	python -m app.main
+	poetry run python -m app.main
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
@@ -53,5 +53,5 @@ clean:
 	find . -type d -name test_results -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name ".coverage" -delete
-	rm -rf responses/*.log 2>/dev/null || true
+	rm -rf responses/*.* 2>/dev/null || true
 

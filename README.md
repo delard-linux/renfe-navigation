@@ -33,9 +33,12 @@ renfe-navigation/
 ## Setup
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-python -m playwright install --with-deps
+# Instalar Poetry (si no lo tienes)
+curl -sSL https://install.python-poetry.org | python3 -
+
+# Instalar dependencias
+poetry install
+poetry run playwright install
 ```
 
 O con Make:
@@ -47,7 +50,7 @@ make install
 ## Run
 
 ```bash
-python -m app.main
+poetry run python -m app.main
 ```
 
 O con Make:
