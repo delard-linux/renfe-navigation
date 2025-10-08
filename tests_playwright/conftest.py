@@ -39,15 +39,18 @@ def configure_playwright_debug():
     logger = logging.getLogger("app.renfe")
     logger.setLevel(logging.INFO)
 
-    # Asegurar que los logs se muestren en consola
-    if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(logging.INFO)
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+    # Limpiar handlers existentes para evitar duplicados
+    logger.handlers.clear()
+    logger.propagate = False  # Evitar que se propague al logger raíz
+
+    # Añadir handler único para consola
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
     print("\n" + "=" * 60)
     print("🎭 PLAYWRIGHT DEBUG MODE ACTIVADO")
