@@ -29,14 +29,10 @@ PLAYWRIGHT_CONFIG = {
 @pytest.fixture(scope="session", autouse=True)
 def configure_playwright_debug():
     """
-    Fixture que configura Playwright en modo debug para estos tests.
+    Fixture que configura el logging para tests de Playwright.
 
     Se ejecuta automáticamente antes de todos los tests en esta carpeta.
     """
-    # Activar modo debug (headless=False) para tests_playwright
-    os.environ["PLAYWRIGHT_HEADLESS"] = "false"
-    os.environ["PLAYWRIGHT_SLOWMO"] = "2000"  # Ralentizar 2000ms por acción
-
     # Configurar logging específico para tests
     logger = logging.getLogger("app.renfe")
     logger.setLevel(logging.INFO)
@@ -57,17 +53,10 @@ def configure_playwright_debug():
     print("\n" + "=" * 60)
     print("🎭 PLAYWRIGHT DEBUG MODE ACTIVADO")
     print("=" * 60)
-    print("⚙️  headless: False (navegador visible)")
-    print("⚙️  slow_mo: 2000ms")
+    print(f"⚙️  headless: {PLAYWRIGHT_CONFIG['headless']} ({'navegador oculto' if PLAYWRIGHT_CONFIG['headless'] else 'navegador visible'})")
+    print(f"⚙️  slow_mo: {PLAYWRIGHT_CONFIG['slow_mo']}ms")
     print("⚙️  logging: INFO level activado")
     print(f"⚙️  viewport: {PLAYWRIGHT_CONFIG['viewport_width']}x{PLAYWRIGHT_CONFIG['viewport_height']}")
-    print("=" * 60 + "\n")
-
-    yield
-
-    # Cleanup después de los tests
-    print("\n" + "=" * 60)
-    print("✅ Tests de Playwright completados")
     print("=" * 60 + "\n")
 
 
