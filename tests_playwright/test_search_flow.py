@@ -10,10 +10,6 @@ NOTA: Estos tests se ejecutan con el navegador VISIBLE por defecto
 
 import pytest
 import os
-import sys
-
-# Añadir directorio raíz al path
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.renfe import search_trains_flow
 

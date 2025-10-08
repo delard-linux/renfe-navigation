@@ -6,12 +6,8 @@ que usan Playwright, habilitando el modo debug por defecto.
 """
 
 import pytest
-import sys
 import os
 import logging
-
-# Añadir directorio raíz al path
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 # Importar configuración de Playwright
 import playwright_config as pw_config
