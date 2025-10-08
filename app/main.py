@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 import logging
 from datetime import datetime
+import json
 
 try:
     from .renfe import search_trains
@@ -104,7 +105,14 @@ async def get_trains(
             trains_out=trains_out_api,
             trains_return=trains_ret_api,
         )
-        return JSONResponse(content=payload.model_dump())
+
+        # Log del JSON de salida en formato pretty
+        payload_json = payload.model_dump()
+        logger.info(
+            f"[RESPONSE] JSON de salida:\n{json.dumps(payload_json, indent=2, ensure_ascii=False)}"
+        )
+
+        return JSONResponse(content=payload_json)
     except Exception as e:
         elapsed = (datetime.now() - start_time).total_seconds()
         logger.error(f"[ERROR] Búsqueda falló después de {elapsed:.2f}s: {str(e)}")
