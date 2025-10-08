@@ -317,6 +317,15 @@ async def search_trains_flow(
     Returns:
         Ruta del archivo de respuesta guardado
     """
+    # Loggear parámetros de entrada
+    logger.info(f"[FLOW] Parámetros de entrada:")
+    logger.info(f"[FLOW]   - Origen: {origin}")
+    logger.info(f"[FLOW]   - Destino: {destination}")
+    logger.info(f"[FLOW]   - Fecha ida: {date_out}")
+    logger.info(f"[FLOW]   - Fecha vuelta: {date_return if date_return else 'No especificada'}")
+    logger.info(f"[FLOW]   - Pasajeros: {adults} adulto{'s' if adults > 1 else ''}")
+    logger.info(f"[FLOW]   - Configuración Playwright: {playwright}")
+    
     logger.info("[FLOW] Iniciando navegador Chromium desde página inicial")
 
     async with async_playwright() as p:
