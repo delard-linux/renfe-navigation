@@ -40,8 +40,11 @@ test-failed:
 test-playwright:
 	poetry run pytest tests_playwright/ -v -s
 
-test-playwright-one:
+test-playwright-onetrip:
 	poetry run pytest tests_playwright/test_search_flow.py::test_search_trains_flow_ourense_madrid -v -s
+
+test-playwright-roundtrip:
+	poetry run pytest tests_playwright/test_search_flow.py::test_search_trains_flow_barcelona_madrid_roundtrip -v -s
 
 run:
 	poetry run python -m app.main
