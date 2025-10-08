@@ -21,9 +21,7 @@ renfe-navigation/
 │       └── renfe_response_sample.html   # Respuesta HTML de ejemplo
 ├── tests_playwright/
 │   ├── conftest.py          # Configuración para modo debug (headless=False)
-│   ├── test_search_flow.py  # Tests E2E del flujo completo
-│   └── README.md            # Documentación de tests Playwright
-├── playwright.config.py     # Configuración global de Playwright
+│   └── test_search_flow.py  # Tests E2E del flujo completo
 ├── pytest.ini               # Configuración de pytest
 ├── Makefile                 # Comandos útiles
 ├── requirements.txt
