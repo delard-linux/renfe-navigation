@@ -107,11 +107,13 @@ def _ensure_responses_dir():
     os.makedirs(RESPONSES_DIR, exist_ok=True)
 
 
-def _save_response(content: str, status_code: int = 200):
-    """Guarda la respuesta HTML con el formato [AAMMDD_HH24MISS]_[Status code]_buscarTren.do.log"""
+def _save_response(
+    content: str, status_code: int = 200, filename_suffix: str = "buscarTren.do.log"
+):
+    """Guarda la respuesta HTML con el formato [AAMMDD_HH24MISS]_[Status code]_[filename_suffix]"""
     _ensure_responses_dir()
     timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
-    filename = f"{timestamp}_{status_code}_buscarTren.do.log"
+    filename = f"{timestamp}_{status_code}_{filename_suffix}"
     filepath = os.path.join(RESPONSES_DIR, filename)
 
     try:
@@ -312,3 +314,111 @@ async def search_trains(
         await browser.close()
 
         return trains_out, trains_ret
+
+
+async def search_trains_flow(
+    origin: str,
+    destination: str,
+    date_out: str,
+    date_return: Optional[str],
+    adults: int,
+) -> str:
+    """Realiza el flujo completo desde la página inicial de Renfe hasta la búsqueda"""
+    logger.info("[FLOW] Iniciando navegador Chromium desde página inicial")
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context()
+        page = await context.new_page()
+
+        try:
+            # Navegar a la página inicial de Renfe
+            logger.info("[FLOW] Navegando a página inicial de Renfe")
+            await page.goto(
+                "https://www.renfe.com/es/es", wait_until="domcontentloaded"
+            )
+
+            # Buscar estaciones en el catálogo
+            origin_station = _find_station(origin)
+            dest_station = _find_station(destination)
+
+            logger.info(
+                f"[FLOW] Origen: {origin_station.get('desgEstacion', origin)} - Clave: {origin_station.get('clave')}"
+            )
+            logger.info(
+                f"[FLOW] Destino: {dest_station.get('desgEstacion', destination)} - Clave: {dest_station.get('clave')}"
+            )
+
+            # Convertir fechas de YYYY-MM-DD a DD/MM/YYYY
+            date_out_obj = datetime.strptime(date_out, "%Y-%m-%d")
+            date_out_formatted = date_out_obj.strftime("%d/%m/%Y")
+
+            date_return_formatted = ""
+            if date_return:
+                date_return_obj = datetime.strptime(date_return, "%Y-%m-%d")
+                date_return_formatted = date_return_obj.strftime("%d/%m/%Y")
+
+            # Esperar a que cargue el formulario
+            await page.wait_for_selector("#origin", timeout=10000)
+
+            # Rellenar campo origen
+            logger.info(f"[FLOW] Rellenando origen: {origin}")
+            await page.fill("#origin", origin_station.get("desgEstacion", origin))
+
+            # Rellenar campo destino
+            logger.info(f"[FLOW] Rellenando destino: {destination}")
+            await page.fill(
+                "#destination", dest_station.get("desgEstacion", destination)
+            )
+
+            # Rellenar fecha de ida
+            logger.info(f"[FLOW] Rellenando fecha ida: {date_out_formatted}")
+            await page.fill("#first-input", date_out_formatted)
+
+            # Rellenar fecha de vuelta si existe
+            if date_return_formatted:
+                logger.info(f"[FLOW] Rellenando fecha vuelta: {date_return_formatted}")
+                await page.fill("#second-input", date_return_formatted)
+
+            # Configurar número de pasajeros
+            logger.info(f"[FLOW] Configurando pasajeros: {adults}")
+            await page.fill("#adultos_", str(adults))
+
+            # Hacer clic en el botón de buscar
+            logger.info("[FLOW] Haciendo clic en buscar billetes")
+            search_button = page.locator("button[type='submit']").first
+            await search_button.click()
+
+            # Esperar a que cargue la página de resultados
+            await page.wait_for_load_state("networkidle")
+
+            # Obtener el contenido HTML de la página de resultados
+            response_content = await page.content()
+
+            # Guardar la respuesta con el formato específico
+            filepath = _save_response(
+                response_content,
+                status_code=200,
+                filename_suffix="buscarTrenFlow.do.log",
+            )
+
+            logger.info("[FLOW] Flujo completado exitosamente")
+            return filepath
+
+        except Exception as e:
+            logger.error(f"[FLOW] Error en el flujo: {e}")
+            # Intentar guardar la respuesta de error
+            try:
+                response_content = await page.content()
+                _save_response(
+                    response_content,
+                    status_code=500,
+                    filename_suffix="buscarTrenFlow.do.log",
+                )
+            except Exception:
+                pass
+            raise
+        finally:
+            logger.info("[FLOW] Cerrando navegador")
+            await context.close()
+            await browser.close()

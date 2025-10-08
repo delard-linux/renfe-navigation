@@ -49,11 +49,23 @@ O con Make:
 make run
 ```
 
-## Endpoint
+## Endpoints
+
+### GET /trains
+Realiza una búsqueda directa de trenes usando la API interna de Renfe.
 
 - GET /trains?origin=OURENSE&destination=MADRID&date_out=2025-10-14&date_return=2025-11-05&adults=1
 
 Dates must be ISO format YYYY-MM-DD.
+
+### GET /trains-flow
+Realiza el flujo completo desde la página inicial de Renfe, rellenando el formulario y haciendo clic en buscar.
+
+- GET /trains-flow?origin=OURENSE&destination=MADRID&date_out=2025-10-14&date_return=2025-11-05&adults=1
+
+Dates must be ISO format YYYY-MM-DD.
+
+**Nota:** Este endpoint guarda automáticamente la respuesta HTML en el directorio `responses/` con el formato `[AAMMDD_HH24MISS]_[Status code]_buscarTrenFlow.do.log`.
 
 ### Estructura de Respuesta
 
@@ -115,6 +127,22 @@ curl -s "http://localhost:8000/trains?origin=BILBAO&destination=SAN%20SEBASTIAN&
 ```
 
 **Nota:** Puedes usar nombres de estaciones como aparecen en `estaciones.json`. El sistema buscará coincidencias automáticamente.
+
+### Ejemplos con /trains-flow
+
+Estos ejemplos utilizan el flujo completo desde la página inicial de Renfe:
+
+#### Ejemplo 6: Ourense -> Madrid (ida y vuelta) usando flujo completo
+```bash
+curl -s "http://localhost:8000/trains-flow?origin=OURENSE&destination=MADRID&date_out=2025-10-14&date_return=2025-11-05&adults=1"
+```
+
+#### Ejemplo 7: Barcelona -> Madrid (solo ida) usando flujo completo
+```bash
+curl -s "http://localhost:8000/trains-flow?origin=BARCELONA&destination=MADRID&date_out=2025-10-20&adults=2"
+```
+
+**Nota:** Los endpoints `/trains-flow` generan archivos de respuesta en `responses/` con el formato `[AAMMDD_HH24MISS]_[Status code]_buscarTrenFlow.do.log`.
 
 ## Testing
 

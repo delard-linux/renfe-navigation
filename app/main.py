@@ -7,9 +7,9 @@ from datetime import datetime
 import json
 
 try:
-    from .renfe import search_trains
+    from .renfe import search_trains, search_trains_flow
 except ImportError:
-    from renfe import search_trains
+    from renfe import search_trains, search_trains_flow
 
 # Configurar logging
 logging.basicConfig(
@@ -116,6 +116,42 @@ async def get_trains(
     except Exception as e:
         elapsed = (datetime.now() - start_time).total_seconds()
         logger.error(f"[ERROR] Búsqueda falló después de {elapsed:.2f}s: {str(e)}")
+        raise
+
+
+@app.get("/trains-flow")
+async def get_trains_flow(
+    origin: str = Query(..., description="Station origin, e.g. OURENSE"),
+    destination: str = Query(..., description="Station destination, e.g. MADRID"),
+    date_out: str = Query(..., description="Outbound date YYYY-MM-DD"),
+    date_return: Optional[str] = Query(None, description="Return date YYYY-MM-DD"),
+    adults: int = Query(1, ge=1, le=8, description="Number of adult passengers"),
+):
+    """Endpoint que realiza el flujo completo desde la página inicial de Renfe hasta la búsqueda de trenes"""
+    start_time = datetime.now()
+    logger.info(
+        f"[FLOW REQUEST] Iniciando flujo: {origin} -> {destination}, Salida: {date_out}, Vuelta: {date_return}, Pasajeros: {adults}"
+    )
+
+    try:
+        filepath = await search_trains_flow(
+            origin=origin,
+            destination=destination,
+            date_out=date_out,
+            date_return=date_return,
+            adults=adults,
+        )
+
+        elapsed = (datetime.now() - start_time).total_seconds()
+        logger.info(
+            f"[FLOW SUCCESS] Flujo completado en {elapsed:.2f}s - Archivo guardado: {filepath}"
+        )
+
+        return {"message": "Flujo completado exitosamente", "filepath": filepath}
+
+    except Exception as e:
+        elapsed = (datetime.now() - start_time).total_seconds()
+        logger.error(f"[FLOW ERROR] Flujo falló después de {elapsed:.2f}s: {str(e)}")
         raise
 
 
