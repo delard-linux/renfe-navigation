@@ -328,8 +328,19 @@ async def search_trains_flow(
     logger.info("[FLOW] Iniciando navegador Chromium desde página inicial")
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=headless)
-        context = await browser.new_context()
+        browser = await p.chromium.launch(
+            headless=headless,
+            args=[
+                "--start-maximized",  # Maximizar ventana
+                "--window-size=2560,1440",  # Tamaño de ventana
+            ]
+            if not headless
+            else [],
+        )
+        context = await browser.new_context(
+            viewport={"width": 2560, "height": 1440} if not headless else None,
+            no_viewport=headless,  # Usar tamaño completo en modo visible
+        )
         page = await context.new_page()
 
         try:

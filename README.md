@@ -15,8 +15,15 @@ renfe-navigation/
 ├── tests/
 │   ├── conftest.py                      # Configuración de pytest
 │   ├── test_fixed_parser_train_lists.py # Tests del parser HTML
+│   ├── test_api_endpoint.py             # Tests del endpoint API
 │   └── fixtures/
-│       └── train_list_sample.html       # Datos de prueba
+│       ├── train_list_sample.html       # Datos de prueba
+│       └── renfe_response_sample.html   # Respuesta HTML de ejemplo
+├── tests_playwright/
+│   ├── conftest.py          # Configuración para modo debug (headless=False)
+│   ├── test_search_flow.py  # Tests E2E del flujo completo
+│   └── README.md            # Documentación de tests Playwright
+├── playwright.config.py     # Configuración global de Playwright
 ├── pytest.ini               # Configuración de pytest
 ├── Makefile                 # Comandos útiles
 ├── requirements.txt
@@ -148,7 +155,11 @@ curl -s "http://localhost:8000/trains-flow?origin=BARCELONA&destination=MADRID&d
 
 El proyecto utiliza **pytest** para los tests unitarios y de integración.
 
-### Ejecutar todos los tests
+### Tests Unitarios y de Integración (tests/)
+
+Estos tests verifican la lógica de parsing y los endpoints sin interactuar con el navegador real.
+
+#### Ejecutar todos los tests:
 
 ```bash
 pytest
@@ -156,7 +167,7 @@ pytest
 make test
 ```
 
-O con más detalle:
+#### Con más detalle:
 
 ```bash
 pytest -v
@@ -164,7 +175,7 @@ pytest -v
 make test-verbose
 ```
 
-### Ejecutar tests específicos
+#### Ejecutar tests específicos:
 
 ```bash
 # Solo tests del parser
@@ -176,6 +187,46 @@ pytest tests/test_fixed_parser_train_lists.py::test_parse_train_list_html_extrac
 # Tests con salida detallada (útil para debugging)
 pytest tests/test_fixed_parser_train_lists.py::test_parse_train_list_html_display_results -v -s
 ```
+
+### Tests End-to-End con Playwright (tests_playwright/)
+
+**Estos tests ejecutan el navegador VISIBLE por defecto** para que puedas ver cómo se ejecuta el flujo real.
+
+#### Ejecutar todos los tests E2E:
+
+```bash
+make test-playwright
+# o
+pytest tests_playwright/ -v -s
+```
+
+#### Ejecutar un solo test E2E:
+
+```bash
+make test-playwright-one
+# o
+pytest tests_playwright/test_search_flow.py::test_search_trains_flow_ourense_madrid -v -s
+```
+
+#### Configuración de Playwright:
+
+Los tests de Playwright se pueden configurar con variables de entorno:
+
+```bash
+# Ejecutar en modo headless (sin navegador visible)
+PLAYWRIGHT_HEADLESS=true pytest tests_playwright/ -v
+
+# Ralentizar acciones para mejor visualización (milisegundos)
+PLAYWRIGHT_SLOWMO=1000 pytest tests_playwright/ -v -s
+
+# Grabar videos de los tests
+PLAYWRIGHT_VIDEO=true pytest tests_playwright/ -v
+
+# Cambiar viewport
+PLAYWRIGHT_WIDTH=1920 PLAYWRIGHT_HEIGHT=1080 pytest tests_playwright/ -v -s
+```
+
+Ver `tests_playwright/README.md` para más detalles sobre configuración y tests disponibles.
 
 ### Cobertura de Tests
 

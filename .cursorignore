@@ -28,6 +28,11 @@ ENV/
 .coverage.*
 htmlcov/          # Reportes HTML de cobertura de tests
 
+# Playwright test results
+test_results/
+*.mp4
+*.webm
+
 # Type checker / linters caches
 .mypy_cache/
 .pyright/
