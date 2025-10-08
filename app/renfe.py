@@ -394,9 +394,9 @@ async def search_trains_flow(
                 for selector in cookie_selectors:
                     try:
                         cookie_btn = page.locator(selector).first
-                        if await cookie_btn.is_visible(timeout=2000):
+                        if await cookie_btn.is_visible(timeout=1000):
                             await cookie_btn.click()
-                            await page.wait_for_timeout(1000)
+                            await page.wait_for_timeout(300)
                             logger.info(
                                 f"[FLOW] Cookies aceptadas con selector: {selector}"
                             )
@@ -433,89 +433,178 @@ async def search_trains_flow(
                 date_return_formatted = date_return_obj.strftime("%d/%m/%Y")
 
             # Esperar a que cargue el formulario
-            await page.wait_for_selector("#origin", timeout=10000)
+            await page.wait_for_selector("#origin", timeout=5000)
 
             # Rellenar campo origen
             logger.info(f"[FLOW] Rellenando origen: {origin}")
             await page.fill("#origin", origin_station.get("desgEstacion", origin))
-            await page.wait_for_timeout(500)
+            await page.wait_for_timeout(300)
 
             # Rellenar campo destino
             logger.info(f"[FLOW] Rellenando destino: {destination}")
             await page.fill(
                 "#destination", dest_station.get("desgEstacion", destination)
             )
-            await page.wait_for_timeout(500)
+            await page.wait_for_timeout(300)
 
             # Interactuar con el date picker de Renfe correctamente
             logger.info(f"[FLOW] Configurando fecha de ida: {date_out_formatted}")
 
             try:
-                # Hacer clic en el campo de fecha de ida para abrir el date picker
+                # 1) Abrir date picker haciendo click en el input de ida
                 await page.click("#first-input", timeout=5000)
-                await page.wait_for_timeout(1000)
+                await page.wait_for_selector("#daterangev2", timeout=5000)
+                await page.wait_for_timeout(200)
 
-                # Usar JavaScript para establecer la fecha y disparar eventos
-                await page.evaluate(f"""
-                    const firstInput = document.querySelector('#first-input');
-                    if (firstInput) {{
-                        firstInput.value = '{date_out_formatted}';
-                        firstInput.setAttribute('aria-label', 'Fecha ida {date_out_formatted}');
-                        firstInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                        firstInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                        firstInput.dispatchEvent(new Event('blur', {{ bubbles: true }}));
-                    }}
-                    const fechaIdaField = document.querySelector('input[name="FechaIdaSel"]');
-                    if (fechaIdaField) {{ fechaIdaField.value = '{date_out_formatted}'; }}
-                """)
-
-                await page.wait_for_timeout(500)
-
-                # Cerrar el date picker presionando Escape
-                await page.keyboard.press("Escape")
-                await page.wait_for_timeout(500)
-
-                logger.info(f"[FLOW] Fecha de ida configurada: {date_out_formatted}")
-
-                # Si hay fecha de vuelta, configurarla
+                # 2) Seleccionar modo ida / ida y vuelta
                 if date_return_formatted:
-                    logger.info(
-                        f"[FLOW] Configurando fecha de vuelta: {date_return_formatted}"
+                    # Viaje de ida y vuelta
+                    vuelta_label = page.locator(
+                        ".lightpick__label:has-text('Viaje de ida y vuelta')"
+                    ).first
+                    try:
+                        if await vuelta_label.is_visible(timeout=1000):
+                            await vuelta_label.click()
+                            await page.wait_for_timeout(150)
+                    except Exception:
+                        pass
+                else:
+                    # Viaje solo ida
+                    ida_label = page.locator(
+                        ".lightpick__label:has-text('Viaje solo ida')"
+                    ).first
+                    try:
+                        if await ida_label.is_visible(timeout=1000):
+                            await ida_label.click()
+                            await page.wait_for_timeout(150)
+                    except Exception:
+                        pass
+
+                # 3) Helpers para navegar meses y leer meses visibles
+                spanish_months = {
+                    1: "enero",
+                    2: "febrero",
+                    3: "marzo",
+                    4: "abril",
+                    5: "mayo",
+                    6: "junio",
+                    7: "julio",
+                    8: "agosto",
+                    9: "septiembre",
+                    10: "octubre",
+                    11: "noviembre",
+                    12: "diciembre",
+                }
+
+                async def get_visible_month_texts() -> tuple[str, Optional[str]]:
+                    # Esperar a que la zona de meses exista
+                    await page.wait_for_selector(
+                        "#daterangev2 .lightpick__months",
+                        timeout=5000,
+                    )
+                    # Leer textos vía JS para evitar fallos por cambios leves en estructura
+                    result = await page.evaluate(
+                        """
+                        (() => {
+                          const getTitle = (idx) => {
+                            const header = document.querySelector(`#daterangev2 > section > div.lightpick__inner > div.lightpick__months > section:nth-child(${idx}) > header`);
+                            if (!header) return '';
+                            const txt = header.textContent || '';
+                            return txt.trim().toLowerCase();
+                          };
+                          return { m1: getTitle(1), m2: getTitle(2) };
+                        })()
+                        """
+                    )
+                    m1 = (result.get("m1") or "").strip().lower()
+                    m2_raw = result.get("m2")
+                    m2 = m2_raw.strip().lower() if m2_raw else None
+                    return (m1, m2)
+
+                async def click_next():
+                    await page.click("button.lightpick__next-action", timeout=2000)
+                    await page.wait_for_timeout(200)
+
+                def month_matches(target_dt: datetime, month_text: str) -> bool:
+                    mon = spanish_months[target_dt.month]
+                    return mon in (month_text or "")
+
+                async def select_day_in_panel(panel_index: int, day: int) -> bool:
+                    base = f"#daterangev2 > section > div.lightpick__inner > div.lightpick__months > section:nth-child({panel_index})"
+                    day_locator = page.locator(
+                        base + " div.lightpick__days > div.lightpick__day.is-available",
+                        has_text=str(day),
+                    )
+                    try:
+                        if await day_locator.first.is_visible(timeout=2000):
+                            await day_locator.first.click()
+                            await page.wait_for_timeout(150)
+                            return True
+                    except Exception:
+                        return False
+                    return False
+
+                # 4) Navegar hasta mostrar el mes de ida (en 1er o 2º panel si hay dos)
+                max_steps = 18  # límite de seguridad
+                steps = 0
+                while steps < max_steps:
+                    m1, m2 = await get_visible_month_texts()
+                    if month_matches(date_out_obj, m1) or (
+                        m2 and month_matches(date_out_obj, m2)
+                    ):
+                        break
+                    await click_next()
+                    steps += 1
+
+                # 5) Seleccionar día de ida (en panel 1 o 2 según visibilidad)
+                selected_out = await select_day_in_panel(1, date_out_obj.day)
+                if not selected_out and (
+                    await page.locator(
+                        "#daterangev2 > section > div.lightpick__inner > div.lightpick__months > section:nth-child(2)"
+                    ).count()
+                ):
+                    selected_out = await select_day_in_panel(2, date_out_obj.day)
+                if not selected_out:
+                    raise Exception(
+                        "No se pudo seleccionar el día de ida en el date picker"
                     )
 
-                    await page.click("#second-input", timeout=5000)
-                    await page.wait_for_timeout(1000)
-
-                    await page.evaluate(f"""
-                        const secondInput = document.querySelector('#second-input');
-                        if (secondInput) {{
-                            secondInput.value = '{date_return_formatted}';
-                            secondInput.setAttribute('aria-label', 'Fecha vuelta {date_return_formatted}');
-                            secondInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                            secondInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                            secondInput.dispatchEvent(new Event('blur', {{ bubbles: true }}));
-                        }}
-                        const fechaVueltaField = document.querySelector('input[name="FechaVueltaSel"]');
-                        if (fechaVueltaField) {{ fechaVueltaField.value = '{date_return_formatted}'; }}
-                    """)
-
-                    await page.wait_for_timeout(500)
-                    await page.keyboard.press("Escape")
-                    await page.wait_for_timeout(500)
-
-                    logger.info(
-                        f"[FLOW] Fecha de vuelta configurada: {date_return_formatted}"
-                    )
-
-                # Verificar que los campos tienen las fechas
-                fecha_ida_value = await page.input_value("#first-input")
-                logger.info(f"[FLOW DEBUG] Fecha ida en input: {fecha_ida_value}")
-
+                # 6) Si hay fecha de vuelta, navegar y seleccionar también
                 if date_return_formatted:
-                    fecha_vuelta_value = await page.input_value("#second-input")
-                    logger.info(
-                        f"[FLOW DEBUG] Fecha vuelta en input: {fecha_vuelta_value}"
-                    )
+                    steps = 0
+                    while steps < max_steps:
+                        m1, m2 = await get_visible_month_texts()
+                        if month_matches(date_return_obj, m1) or (
+                            m2 and month_matches(date_return_obj, m2)
+                        ):
+                            break
+                        await click_next()
+                        steps += 1
+
+                    selected_ret = await select_day_in_panel(1, date_return_obj.day)
+                    if not selected_ret and (
+                        await page.locator(
+                            "#daterangev2 > section > div.lightpick__inner > div.lightpick__months > section:nth-child(2)"
+                        ).count()
+                    ):
+                        selected_ret = await select_day_in_panel(2, date_return_obj.day)
+                    if not selected_ret:
+                        raise Exception(
+                            "No se pudo seleccionar el día de vuelta en el date picker"
+                        )
+
+                # 7) Pulsar Aceptar
+                try:
+                    aceptar_btn = page.locator(
+                        "#daterangev2 > section > div.lightpick__footer-buttons > button:nth-child(2), button.lightpick__apply-action-sub"
+                    ).first
+                    if await aceptar_btn.is_visible(timeout=2000):
+                        await aceptar_btn.click()
+                        await page.wait_for_timeout(200)
+                except Exception:
+                    pass
+
+                logger.info("[FLOW] Fechas seleccionadas en date picker")
 
             except Exception as e:
                 logger.error(f"[FLOW] Error configurando fechas: {e}")
@@ -544,6 +633,8 @@ async def search_trains_flow(
 
             # Intentar múltiples selectores para el botón de buscar
             search_selectors = [
+                "#ticketSearchBt button span:has-text('Buscar billete')",
+                "button:has-text('Buscar billete')",
                 "button[type='submit']",
                 "button:has-text('Buscar')",
                 "button:has-text('Buscar billetes')",
@@ -556,7 +647,7 @@ async def search_trains_flow(
             for selector in search_selectors:
                 try:
                     search_btn = page.locator(selector).first
-                    if await search_btn.is_visible(timeout=2000):
+                    if await search_btn.is_visible(timeout=1000):
                         logger.info(
                             f"[FLOW DEBUG] Encontrado botón de buscar con selector: {selector}"
                         )

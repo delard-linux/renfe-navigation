@@ -80,7 +80,7 @@ async def test_search_trains_flow_barcelona_madrid_roundtrip(playwright_viewport
         origin="BARCELONA",
         destination="MADRID",
         date_out="2025-10-20",
-        date_return="2025-10-22",
+        date_return="2025-11-22",
         adults=2,
         headless=False,
         viewport_width=width,

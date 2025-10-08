@@ -25,7 +25,7 @@ def configure_playwright_debug():
     """
     # Activar modo debug (headless=False) para tests_playwright
     os.environ["PLAYWRIGHT_HEADLESS"] = "false"
-    os.environ["PLAYWRIGHT_SLOWMO"] = "1000"  # Ralentizar 1000ms por acción
+    os.environ["PLAYWRIGHT_SLOWMO"] = "3000"  # Ralentizar 1000ms por acción
 
     print("\n" + "=" * 60)
     print("🎭 PLAYWRIGHT DEBUG MODE ACTIVADO")
