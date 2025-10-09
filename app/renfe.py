@@ -100,6 +100,85 @@ def _save_response(
         return None
 
 
+def _parse_and_save_trains_json(
+    html_content: str, 
+    status_code: int = 200, 
+    filename_suffix: str = "buscarTren.do.log"
+) -> tuple[List[TrainModel], str]:
+    """
+    Parsea el HTML de resultados de trenes y guarda tanto HTML como JSON.
+    
+    Args:
+        html_content: Contenido HTML de la página de resultados
+        status_code: Código de estado HTTP
+        filename_suffix: Sufijo para el nombre del archivo
+        
+    Returns:
+        Tuple con (lista_de_trenes, ruta_del_archivo_html)
+    """
+    # Guardar HTML
+    html_filepath = _save_response(html_content, status_code, filename_suffix)
+    
+    # Parsear trenes
+    try:
+        parse_train_list_html = _get_parse_train_list_html()
+        trains = parse_train_list_html(html_content)
+        logger.info(f"[PARSER] Trenes extraídos: {len(trains)}")
+        
+        # Guardar JSON con pretty print
+        if trains:
+            json_filepath = _save_trains_json(trains, status_code, filename_suffix)
+            logger.info(f"[PARSER] JSON guardado en: {json_filepath}")
+        else:
+            logger.warning(f"[PARSER] No se encontraron trenes en el HTML - Status: {status_code}")
+            # Guardar un JSON vacío para debugging
+            _save_trains_json([], status_code, filename_suffix)
+        
+        return trains, html_filepath
+        
+    except Exception as e:
+        logger.error(f"[PARSER] Error parseando HTML de resultados: {e}")
+        return [], html_filepath
+
+
+def _save_trains_json(
+    trains: List[TrainModel], 
+    status_code: int = 200, 
+    filename_suffix: str = "buscarTren.do.log"
+) -> str:
+    """
+    Guarda la lista de trenes como JSON con pretty print.
+    
+    Args:
+        trains: Lista de trenes parseados
+        status_code: Código de estado HTTP
+        filename_suffix: Sufijo para el nombre del archivo
+        
+    Returns:
+        Ruta del archivo JSON guardado
+    """
+    _ensure_responses_dir()
+    timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
+    
+    # Crear nombre de archivo JSON
+    json_filename = f"{timestamp}_{status_code}_{filename_suffix.replace('.log', '.json')}"
+    json_filepath = os.path.join(RESPONSES_DIR, json_filename)
+    
+    try:
+        # Convertir a diccionarios para serialización JSON
+        trains_data = [train.model_dump() for train in trains]
+        
+        with open(json_filepath, "w", encoding="utf-8") as f:
+            json.dump(trains_data, f, indent=2, ensure_ascii=False)
+        
+        logger.info(f"[PARSER] JSON de trenes guardado en: {json_filename}")
+        return json_filepath
+        
+    except Exception as e:
+        logger.error(f"[PARSER] Error guardando JSON de trenes: {e}")
+        return None
+
+
 def _load_stations():
     """Carga el catálogo de estaciones desde el JSON"""
     stations_path = os.path.join(
@@ -151,14 +230,10 @@ async def _extract_results(page) -> List[TrainModel]:
     logger.info("[SCRAPER] Esperando carga de resultados...")
     await page.wait_for_load_state("networkidle")
     html = await page.content()
-    try:
-        parse_train_list_html = _get_parse_train_list_html()
-        trains = parse_train_list_html(html)
-        logger.info(f"[SCRAPER] Trenes extraídos: {len(trains)}")
-        return trains
-    except Exception as e:
-        logger.error(f"[SCRAPER] Error parseando HTML de resultados: {e}")
-        return []
+    
+    # Usar el método centralizado para parsing y guardado
+    trains, _ = _parse_and_save_trains_json(html, 200, "buscarTren.do.log")
+    return trains
 
 
 async def search_trains(
@@ -628,6 +703,7 @@ async def search_trains_flow(
 
                 # 7) Pulsar Aceptar
                 try:
+                    logger.info("[FLOW] Pulsando Aceptar")
                     aceptar_btn = page.locator(
                         "#daterangev2 > section > div.lightpick__footer-buttons > button:nth-child(2), button.lightpick__apply-action-sub"
                     ).first
@@ -635,6 +711,7 @@ async def search_trains_flow(
                         await aceptar_btn.click()
                         await page.wait_for_timeout(200)
                 except Exception:
+                    logger.warning("[FLOW] No se pudo pulsar Aceptar")
                     pass
 
                 logger.info("[FLOW] Fechas seleccionadas en date picker")
@@ -717,14 +794,14 @@ async def search_trains_flow(
             # Obtener el contenido HTML de la página de resultados
             response_content = await page.content()
 
-            # Guardar la respuesta con el formato específico
-            filepath = _save_response(
+            # Usar el método centralizado para parsing y guardado
+            trains, filepath = _parse_and_save_trains_json(
                 response_content,
                 status_code=200,
                 filename_suffix="buscarTrenFlow.do.log",
             )
 
-            logger.info("[FLOW] Flujo completado exitosamente")
+            logger.info(f"[FLOW] Flujo completado exitosamente - {len(trains)} trenes encontrados")
             return filepath
 
         except Exception as e:
@@ -732,11 +809,12 @@ async def search_trains_flow(
             # Intentar guardar la respuesta de error
             try:
                 response_content = await page.content()
-                _save_response(
+                _, filepath = _parse_and_save_trains_json(
                     response_content,
                     status_code=500,
                     filename_suffix="buscarTrenFlow.do.log",
                 )
+                return filepath
             except Exception:
                 pass
             raise
