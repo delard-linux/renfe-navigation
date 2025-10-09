@@ -475,18 +475,18 @@ async def search_trains_flow(
 
                 # 3) Helpers para navegar meses y leer meses visibles
                 spanish_months = {
-                    1: "enero",
-                    2: "febrero",
-                    3: "marzo",
-                    4: "abril",
-                    5: "mayo",
-                    6: "junio",
-                    7: "julio",
-                    8: "agosto",
-                    9: "septiembre",
-                    10: "octubre",
-                    11: "noviembre",
-                    12: "diciembre",
+                    1: "Enero",
+                    2: "Febrero",
+                    3: "Marzo",
+                    4: "Abril",
+                    5: "Mayo",
+                    6: "Junio",
+                    7: "Julio",
+                    8: "Agosto",
+                    9: "Septiembre",
+                    10: "Octubre",
+                    11: "Noviembre",
+                    12: "Diciembre",
                 }
 
                 async def get_visible_month_texts() -> tuple[str, Optional[str]]:
@@ -502,16 +502,34 @@ async def search_trains_flow(
                           const getTitle = (idx) => {
                             const header = document.querySelector(`#daterangev2 > section > div.lightpick__inner > div.lightpick__months > section:nth-child(${idx}) > header`);
                             if (!header) return '';
+                            
+                            // Buscar el span específico que contiene el mes y año
+                            const monthSpan = header.querySelector('div > span > span:nth-child(1)');
+                            if (monthSpan) {
+                              return monthSpan.textContent || '';
+                            }
+                            
+                            // Fallback: extraer solo la primera línea del texto
                             const txt = header.textContent || '';
-                            return txt.trim().toLowerCase();
+                            const lines = txt.split('\\n').filter(line => line.trim());
+                            return lines[0] ? lines[0].trim() : '';
                           };
                           return { m1: getTitle(1), m2: getTitle(2) };
                         })()
                         """
                     )
-                    m1 = (result.get("m1") or "").strip().lower()
-                    m2_raw = result.get("m2")
+                    m1_raw = result.get("m1") or ""
+                    m2_raw = result.get("m2") or ""
+                    
+                    # Logging detallado de meses visualizados
+                    logger.info(f"[FLOW] 📅 Meses visualizados en el date picker:")
+                    logger.info(f"[FLOW]   - Mes 1: '{m1_raw}'")
+                    logger.info(f"[FLOW]   - Mes 2: '{m2_raw}'")
+                    
+                    # Convertir a minúsculas para comparación
+                    m1 = m1_raw.strip().lower()
                     m2 = m2_raw.strip().lower() if m2_raw else None
+                    
                     return (m1, m2)
 
                 async def click_next():
@@ -520,7 +538,17 @@ async def search_trains_flow(
 
                 def month_matches(target_dt: datetime, month_text: str) -> bool:
                     mon = spanish_months[target_dt.month]
-                    return mon in (month_text or "")
+                    month_text_lower = (month_text or "").lower()
+                    mon_lower = mon.lower()
+                    matches = mon_lower in month_text_lower
+                    
+                    # Logging detallado de comparación de meses
+                    logger.info(f"[FLOW] 🔍 Comparando meses:")
+                    logger.info(f"[FLOW]   - Fecha objetivo: {target_dt.strftime('%Y-%m-%d')} (mes: {mon})")
+                    logger.info(f"[FLOW]   - Mes visualizado: '{month_text}'")
+                    logger.info(f"[FLOW]   - ¿Coincide? {matches} (buscando '{mon_lower}' en '{month_text_lower}')")
+                    
+                    return matches
 
                 async def select_day_in_panel(panel_index: int, day: int) -> bool:
                     base = f"#daterangev2 > section > div.lightpick__inner > div.lightpick__months > section:nth-child({panel_index})"
@@ -540,12 +568,24 @@ async def search_trains_flow(
                 # 4) Navegar hasta mostrar el mes de ida (en 1er o 2º panel si hay dos)
                 max_steps = 18  # límite de seguridad
                 steps = 0
+                logger.info(f"[FLOW] 🗓️ Navegando para encontrar el mes de ida: {date_out_obj.strftime('%B %Y')}")
+                
                 while steps < max_steps:
+                    logger.info(f"[FLOW] 📍 Paso {steps + 1}/{max_steps} - Verificando meses visibles...")
                     m1, m2 = await get_visible_month_texts()
-                    if month_matches(date_out_obj, m1) or (
-                        m2 and month_matches(date_out_obj, m2)
-                    ):
+                    
+                    # Verificar si encontramos el mes en el primer panel
+                    if month_matches(date_out_obj, m1):
+                        logger.info(f"[FLOW] ✅ ¡Mes de ida encontrado en el primer panel!")
                         break
+                    
+                    # Verificar si encontramos el mes en el segundo panel (si existe)
+                    if m2 and month_matches(date_out_obj, m2):
+                        logger.info(f"[FLOW] ✅ ¡Mes de ida encontrado en el segundo panel!")
+                        break
+                    
+                    # Si no encontramos el mes, navegar al siguiente
+                    logger.info(f"[FLOW] ➡️ Mes no encontrado, navegando al siguiente...")
                     await click_next()
                     steps += 1
 
