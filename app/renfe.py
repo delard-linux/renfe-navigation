@@ -222,6 +222,50 @@ def _find_station(station_name: str) -> dict:
     }
 
 
+async def _select_station_from_dropdown(page, selector: str, station_name: str):
+    """
+    Simula la selección de una estación desde el dropdown de autocompletado.
+    
+    Args:
+        page: Página de Playwright
+        selector: Selector del campo de entrada (ej: "#origin", "#destination")
+        station_name: Nombre de la estación a seleccionar
+    """
+    try:
+        # 1) Hacer click en el campo para activar el dropdown
+        logger.info(f"[FLOW] Activando dropdown para {selector}")
+        await page.click(selector, timeout=5000)
+        await page.wait_for_timeout(500)
+        
+        # 2) Escribir el nombre de la estación para activar el autocompletado
+        logger.info(f"[FLOW] Escribiendo '{station_name}' para activar sugerencias")
+        await page.fill(selector, station_name)
+        await page.wait_for_timeout(1000)
+        
+        # 3) Presionar flecha abajo para seleccionar la primera opción
+        logger.info(f"[FLOW] Presionando flecha abajo para seleccionar opción")
+        await page.press(selector, "ArrowDown")
+        await page.wait_for_timeout(300)
+        
+        # 4) Presionar Enter para confirmar la selección
+        logger.info(f"[FLOW] Presionando Enter para confirmar selección")
+        await page.press(selector, "Enter")
+        await page.wait_for_timeout(500)
+        
+        logger.info(f"[FLOW] Estación '{station_name}' seleccionada correctamente")
+        
+    except Exception as e:
+        logger.warning(f"[FLOW] Error seleccionando estación '{station_name}': {e}")
+        # Fallback: intentar rellenado directo
+        try:
+            await page.fill(selector, station_name)
+            await page.press(selector, "Enter")
+            logger.info(f"[FLOW] Usando fallback de rellenado directo para '{station_name}'")
+        except Exception as e2:
+            logger.error(f"[FLOW] Fallback también falló para '{station_name}': {e2}")
+            raise
+
+
 async def _extract_results(page) -> List[TrainModel]:
     """Extrae el contenido HTML y lo parsea con el parser independiente testeado."""
     # Nota para mantenedores: Toda la lógica de parsing de HTML está centralizada
@@ -503,17 +547,13 @@ async def search_trains_flow(
             # Esperar a que cargue el formulario
             await page.wait_for_selector("#origin", timeout=5000)
 
-            # Rellenar campo origen
-            logger.info(f"[FLOW] Rellenando origen: {origin}")
-            await page.fill("#origin", origin_station.get("desgEstacion", origin))
-            await page.wait_for_timeout(300)
+            # Seleccionar origen desde dropdown
+            logger.info(f"[FLOW] Seleccionando origen: {origin}")
+            await _select_station_from_dropdown(page, "#origin", origin_station.get("desgEstacion", origin))
 
-            # Rellenar campo destino
-            logger.info(f"[FLOW] Rellenando destino: {destination}")
-            await page.fill(
-                "#destination", dest_station.get("desgEstacion", destination)
-            )
-            await page.wait_for_timeout(300)
+            # Seleccionar destino desde dropdown
+            logger.info(f"[FLOW] Seleccionando destino: {destination}")
+            await _select_station_from_dropdown(page, "#destination", dest_station.get("desgEstacion", destination))
 
             # Interactuar con el date picker de Renfe correctamente
             logger.info(f"[FLOW] Configurando fecha de ida: {date_out_formatted}")
