@@ -6,7 +6,9 @@ import logging
 from datetime import datetime
 import json
 
-from .renfe import search_trains, search_trains_flow
+# Import services directly from specialized modules
+from .search_trains_service import search_trains
+from .search_trains_flow_service import search_trains_flow
 
 # Configure logging
 logging.basicConfig(
@@ -112,7 +114,7 @@ async def get_trains(
         return JSONResponse(content=payload_json)
     except Exception as e:
         elapsed = (datetime.now() - start_time).total_seconds()
-        logger.error(f"[ERROR] Búsqueda falló después de {elapsed:.2f}s: {str(e)}")
+        logger.error(f"[ERROR] Search failed after {elapsed:.2f}s: {str(e)}")
         raise
 
 
@@ -137,7 +139,7 @@ async def get_trains_flow(
             date_out=date_out,
             date_return=date_return,
             adults=adults,
-            playwright={},  # usa config por defecto; se puede parametrizar por env
+            playwright={},  # use default config; can be parameterized via env
         )
 
         elapsed = (datetime.now() - start_time).total_seconds()

@@ -7,11 +7,14 @@ FastAPI service exposing a GET endpoint that uses Playwright to fetch available 
 ```
 renfe-navigation/
 ├── app/
-│   ├── main.py              # FastAPI app and /trains endpoint
-│   ├── renfe.py             # Playwright scraper
-│   ├── parser.py            # Independent HTML parser
+│   ├── main.py                        # FastAPI app and endpoints
+│   ├── parser.py                      # Independent HTML parser
+│   ├── renfe.py                       # Compatibility wrapper (re-exports)
+│   ├── renfe_common.py                # Shared utilities and models
+│   ├── search_trains_service.py       # Direct API search service
+│   ├── search_trains_flow_service.py  # Homepage flow service
 │   └── resources/
-│       └── estaciones.json  # Station catalog
+│       └── estaciones.json            # Station catalog
 ├── tests/
 │   ├── conftest.py                      # pytest configuration
 │   ├── test_fixed_parser_train_lists.py # HTML parser tests
@@ -80,6 +83,41 @@ ls -la ~/.cache/ms-playwright || true
 ```
 
 You should see folders with downloaded browsers.
+
+## Architecture
+
+The project follows a modular architecture with separated services:
+
+### Core Modules
+
+- **`app/main.py`**: FastAPI application with REST endpoints
+- **`app/parser.py`**: Independent HTML parser for train data
+- **`app/renfe_common.py`**: Shared utilities, models, and helper functions
+  - `TrainModel`, `FareOption`: Pydantic models
+  - Station catalog functions
+  - Response saving and parsing utilities
+- **`app/search_trains_service.py`**: Direct API search service
+  - Sends POST request to Renfe's internal API
+  - Faster, no UI interaction
+- **`app/search_trains_flow_service.py`**: Complete homepage flow service
+  - Navigates from Renfe homepage
+  - Handles cookies, form filling, date picker
+  - Full UI interaction via Playwright
+- **`app/renfe.py`**: Compatibility wrapper
+  - Re-exports all services for backward compatibility
+  - Legacy code continues to work
+
+### Service Selection
+
+**Use `/trains` (search_trains_service) when:**
+- You need fast results
+- Direct API access is sufficient
+- No UI interaction required
+
+**Use `/trains-flow` (search_trains_flow_service) when:**
+- Testing the complete user flow
+- Verifying UI elements work
+- Debugging form interactions
 
 ## Quick Usage
 
