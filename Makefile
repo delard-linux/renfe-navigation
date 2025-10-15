@@ -1,22 +1,17 @@
-.PHONY: help install test test-verbose test-display test-cov test-html test-failed test-playwright test-playwright-one run clean
+.PHONY: help test test-verbose test-display test-cov test-html test-failed test-playwright test-playwright-one run clean
 
 help:
-	@echo "Comandos disponibles:"
-	@echo "  make install            - Instalar dependencias"
-	@echo "  make test               - Ejecutar todos los tests"
-	@echo "  make test-verbose       - Ejecutar tests con salida detallada"
-	@echo "  make test-display       - Ejecutar test con visualización de resultados"
-	@echo "  make test-cov           - Ejecutar tests con reporte de cobertura"
-	@echo "  make test-html          - Ejecutar tests con reporte HTML de cobertura"
-	@echo "  make test-failed        - Re-ejecutar solo los tests que fallaron"
-	@echo "  make test-playwright    - Ejecutar tests E2E con Playwright (navegador visible)"
-	@echo "  make test-playwright-one - Ejecutar un solo test de Playwright"
-	@echo "  make run                - Ejecutar el servidor FastAPI"
-	@echo "  make clean              - Limpiar archivos temporales"
-
-install:
-	poetry install
-	poetry run playwright install
+	@echo "Available commands:"
+	@echo "  make test               - Run all tests"
+	@echo "  make test-verbose       - Run tests with detailed output"
+	@echo "  make test-display       - Run test with result visualization"
+	@echo "  make test-cov           - Run tests with coverage report"
+	@echo "  make test-html          - Run tests with HTML coverage report"
+	@echo "  make test-failed        - Re-run only failed tests"
+	@echo "  make test-playwright    - Run E2E tests with Playwright (visible browser)"
+	@echo "  make test-playwright-one - Run a single Playwright test"
+	@echo "  make run                - Run the FastAPI server"
+	@echo "  make clean              - Clean temporary files"
 
 test:
 	poetry run pytest

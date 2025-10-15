@@ -2,299 +2,337 @@
 
 FastAPI service exposing a GET endpoint that uses Playwright to fetch available trains from Renfe given origin, destination, and outbound/return dates.
 
-## Estructura del Proyecto
+## Project Structure
 
 ```
 renfe-navigation/
 ├── app/
-│   ├── main.py              # FastAPI app y endpoint /trains
-│   ├── renfe.py             # Scraper con Playwright
-│   ├── parser.py            # Parser HTML independiente
+│   ├── main.py              # FastAPI app and /trains endpoint
+│   ├── renfe.py             # Playwright scraper
+│   ├── parser.py            # Independent HTML parser
 │   └── resources/
-│       └── estaciones.json  # Catálogo de estaciones
+│       └── estaciones.json  # Station catalog
 ├── tests/
-│   ├── conftest.py                      # Configuración de pytest
-│   ├── test_fixed_parser_train_lists.py # Tests del parser HTML
-│   ├── test_api_endpoint.py             # Tests del endpoint API
+│   ├── conftest.py                      # pytest configuration
+│   ├── test_fixed_parser_train_lists.py # HTML parser tests
+│   ├── test_api_endpoint.py             # API endpoint tests
 │   └── fixtures/
-│       ├── train_list_sample.html       # Datos de prueba
-│       └── renfe_response_sample.html   # Respuesta HTML de ejemplo
+│       ├── train_list_sample.html       # Test data
+│       └── renfe_response_sample.html   # Sample HTML response
 ├── tests_playwright/
-│   ├── conftest.py          # Configuración para modo debug (headless=False)
-│   └── test_search_flow.py  # Tests E2E del flujo completo
-├── pytest.ini               # Configuración de pytest
-├── pyproject.toml           # Configuración de Poetry
-├── poetry.lock              # Lock file de dependencias
-├── Makefile                 # Comandos útiles
+│   ├── conftest.py          # Configuration for debug mode (headless=False)
+│   └── test_search_flow.py  # E2E flow tests
+├── pytest.ini               # pytest configuration
+├── pyproject.toml           # Poetry configuration
+├── poetry.lock              # Dependency lock file
+├── Makefile                 # Useful commands
 └── README.md
 ```
 
 ## Setup
 
 ```bash
-# Instalar Poetry (si no lo tienes)
+# 1) Install Poetry at user level (if you don't have it)
 curl -sSL https://install.python-poetry.org | python3 -
 
-# Instalar dependencias
+# Verify that poetry is available (in user PATH)
+poetry --version
+
+# (Optional) View project virtual environment path if already created
+# This helps confirm which interpreter Make/Poetry will use
+poetry env info --path
+
+# 2) Install project dependencies with Poetry
 poetry install
+
+# 3) Install Playwright browsers within project environment
 poetry run playwright install
 ```
 
-O con Make:
+### System dependencies for Playwright (if an error appears)
 
-```bash
-make install
+If you see a message like:
+
+```
+╔══════════════════════════════════════════════════════╗
+║ Host system is missing dependencies to run browsers. ║
+║ Please install them with the following command:      ║
+║                                                      ║
+║     sudo playwright install-deps                     ║
 ```
 
-## Run
+Run the system dependency installation command pointing to the project environment's Python (adjust the path to your `.venv` if it differs):
 
 ```bash
-poetry run python -m app.main
+sudo ~/renfe-navigation/.venv/bin/python3 -m playwright install-deps
 ```
 
-O con Make:
+Notes:
+- This step is for the operating system and normally requires `sudo`. It's not integrated into the Makefile to avoid accidentally running commands with elevated privileges.
+- After installing system dependencies, make sure to reinstall browsers if necessary: `poetry run playwright install`.
+
+### Playwright installation verification
+
+To verify that Playwright has downloaded the browsers, check the user cache:
 
 ```bash
+ls -la ~/.cache/ms-playwright || true
+```
+
+You should see folders with downloaded browsers.
+
+## Quick Usage
+
+```bash
+# Start the server (always using Make for simplicity)
 make run
+```
+
+```bash
+# Run all tests (unit and E2E)
+make test
+```
+
+```bash
+# Playwright tests visible (non-headless browser)
+make test-playwright
 ```
 
 ## Endpoints
 
 ### GET /trains
-Realiza una búsqueda directa de trenes usando la API interna de Renfe.
+Performs a direct train search using Renfe's internal API.
 
 - GET /trains?origin=OURENSE&destination=MADRID&date_out=2025-10-14&date_return=2025-11-05&adults=1
 
-Dates must be ISO format YYYY-MM-DD.
+Dates must be in ISO format YYYY-MM-DD.
 
 ### GET /trains-flow
-Realiza el flujo completo desde la página inicial de Renfe, rellenando el formulario y haciendo clic en buscar.
+Performs the complete flow from Renfe's homepage, filling the form and clicking search.
 
 - GET /trains-flow?origin=OURENSE&destination=MADRID&date_out=2025-10-14&date_return=2025-11-05&adults=1
 
-Dates must be ISO format YYYY-MM-DD.
+Dates must be in ISO format YYYY-MM-DD.
 
-**Nota:** Este endpoint guarda automáticamente la respuesta HTML en el directorio `responses/` con el formato `[AAMMDD_HH24MISS]_[Status code]_buscarTrenFlow.do.log`.
+**Note:** This endpoint automatically saves the HTML response in the `responses/` directory with the format `[AAMMDD_HH24MISS]_[Status code]_buscarTrenFlow.do.log`.
 
-### Estructura de Respuesta
+### Response Structure
 
-Cada tren incluye:
-- `train_id`: Identificador único del tren
-- `service_type`: Tipo de servicio (AVE, AVLO, ALVIA, etc.)
-- `departure_time`, `arrival_time`: Horarios
-- `duration`: Duración del trayecto
-- `price_from`: Precio mínimo desde
-- `fares[]`: Array de tarifas disponibles con:
-  - `name`: Nombre de la tarifa (Básico, Elige, Prémium, etc.)
-  - `price`: Precio de la tarifa
-  - `code`: Código de tarifa
-  - `tp_enlace`: Código de enlace
-  - `features[]`: Lista de prestaciones incluidas
-- `badges[]`: Etiquetas especiales (Precio más bajo, Más rápido)
-- `accessible`: Plaza H disponible
-- `eco_friendly`: Cero emisiones
+Each train includes:
+- `train_id`: Unique train identifier
+- `service_type`: Service type (AVE, AVLO, ALVIA, etc.)
+- `departure_time`, `arrival_time`: Schedules
+- `duration`: Journey duration
+- `price_from`: Minimum price from
+- `fares[]`: Array of available fares with:
+  - `name`: Fare name (Básico, Elige, Prémium, etc.)
+  - `price`: Fare price
+  - `code`: Fare code
+  - `tp_enlace`: Link code
+  - `features[]`: List of included features
+- `badges[]`: Special labels (Lowest price, Fastest)
+- `accessible`: H seat available
+- `eco_friendly`: Zero emissions
 
-### Logging de Respuestas
+### Response Logging
 
-Cada búsqueda guarda automáticamente la respuesta HTML de Renfe en el directorio `responses/` con el formato:
+Each search automatically saves Renfe's HTML response in the `responses/` directory with the format:
 
 ```
 [AAMMDD_HHMMSS]_[StatusCode]_buscarTren.do.log
 ```
 
-Ejemplo: `251007_143022_200_buscarTren.do.log`
+Example: `251007_143022_200_buscarTren.do.log`
 
-## Pruebas con curl
+## Testing with curl
 
-El scraper usa la API directa de Renfe: `https://venta.renfe.com/vol/buscarTren.do?Idioma=es&Pais=ES`
+The scraper uses Renfe's direct API: `https://venta.renfe.com/vol/buscarTren.do?Idioma=es&Pais=ES`
 
-Las estaciones se resuelven automáticamente desde `app/resources/estaciones.json`.
+Stations are automatically resolved from `app/resources/estaciones.json`.
 
-### Ejemplo 1: Ourense -> Madrid (ida y vuelta)
+### Example 1: Ourense -> Madrid (round trip)
 ```bash
 curl -s "http://localhost:8000/trains?origin=OURENSE&destination=MADRID&date_out=2025-10-14&date_return=2025-11-05&adults=1" | jq
 ```
 
-### Ejemplo 2: Barcelona -> Madrid (solo ida)
+### Example 2: Barcelona -> Madrid (one way)
 ```bash
 curl -s "http://localhost:8000/trains?origin=BARCELONA&destination=MADRID&date_out=2025-10-20&adults=2" | jq
 ```
 
-### Ejemplo 3: Madrid -> Sevilla (ida y vuelta)
+### Example 3: Madrid -> Sevilla (round trip)
 ```bash
 curl -s "http://localhost:8000/trains?origin=MADRID&destination=SEVILLA&date_out=2025-11-01&date_return=2025-11-03&adults=1" | jq
 ```
 
-### Ejemplo 4: Valencia -> Alicante (solo ida, 4 pasajeros)
+### Example 4: Valencia -> Alicante (one way, 4 passengers)
 ```bash
 curl -s "http://localhost:8000/trains?origin=VALENCIA&destination=ALICANTE&date_out=2025-10-25&adults=4" | jq
 ```
 
-### Ejemplo 5: Bilbao -> San Sebastián (ida y vuelta)
+### Example 5: Bilbao -> San Sebastián (round trip)
 ```bash
 curl -s "http://localhost:8000/trains?origin=BILBAO&destination=SAN%20SEBASTIAN&date_out=2025-11-10&date_return=2025-11-12&adults=2" | jq
 ```
 
-**Nota:** Puedes usar nombres de estaciones como aparecen en `estaciones.json`. El sistema buscará coincidencias automáticamente.
+**Note:** You can use station names as they appear in `estaciones.json`. The system will automatically search for matches.
 
-### Ejemplos con /trains-flow
+### Examples with /trains-flow
 
-Estos ejemplos utilizan el flujo completo desde la página inicial de Renfe:
+These examples use the complete flow from Renfe's homepage:
 
-#### Ejemplo 6: Ourense -> Madrid (ida y vuelta) usando flujo completo
+#### Example 6: Ourense -> Madrid (round trip) using complete flow
 ```bash
 curl -s "http://localhost:8000/trains-flow?origin=OURENSE&destination=MADRID&date_out=2025-10-14&date_return=2025-11-05&adults=1"
 ```
 
-#### Ejemplo 7: Barcelona -> Madrid (solo ida) usando flujo completo
+#### Example 7: Barcelona -> Madrid (one way) using complete flow
 ```bash
 curl -s "http://localhost:8000/trains-flow?origin=BARCELONA&destination=MADRID&date_out=2025-10-20&adults=2"
 ```
 
-**Nota:** Los endpoints `/trains-flow` generan archivos de respuesta en `responses/` con el formato `[AAMMDD_HH24MISS]_[Status code]_buscarTrenFlow.do.log`.
+**Note:** The `/trains-flow` endpoints generate response files in `responses/` with the format `[AAMMDD_HH24MISS]_[Status code]_buscarTrenFlow.do.log`.
 
 ## Testing
 
-El proyecto utiliza **pytest** para los tests unitarios y de integración.
+The project uses **pytest** for unit and integration tests.
 
-### Tests Unitarios y de Integración (tests/)
+### Unit and Integration Tests (tests/)
 
-Estos tests verifican la lógica de parsing y los endpoints sin interactuar con el navegador real.
+These tests verify parsing logic and endpoints without interacting with a real browser.
 
-#### Ejecutar todos los tests:
+#### Run all tests:
 
 ```bash
 pytest
-# o
+# or
 make test
 ```
 
-#### Con más detalle:
+#### With more detail:
 
 ```bash
 pytest -v
-# o
+# or
 make test-verbose
 ```
 
-#### Ejecutar tests específicos:
+#### Run specific tests:
 
 ```bash
-# Solo tests del parser
+# Only parser tests
 pytest tests/test_fixed_parser_train_lists.py -v
 
-# Un test específico
+# A specific test
 pytest tests/test_fixed_parser_train_lists.py::test_parse_train_list_html_extracts_fares -v
 
-# Tests con salida detallada (útil para debugging)
+# Tests with detailed output (useful for debugging)
 pytest tests/test_fixed_parser_train_lists.py::test_parse_train_list_html_display_results -v -s
 ```
 
-### Tests End-to-End con Playwright (tests_playwright/)
+### End-to-End Tests with Playwright (tests_playwright/)
 
-**Estos tests ejecutan el navegador VISIBLE por defecto** para que puedas ver cómo se ejecuta el flujo real.
+**These tests run the browser VISIBLE by default** so you can see how the real flow executes.
 
-#### Ejecutar todos los tests E2E:
+#### Run all E2E tests:
 
 ```bash
 make test-playwright
-# o
+# or
 pytest tests_playwright/ -v -s
 ```
 
-#### Ejecutar un solo test E2E:
+#### Run a single E2E test:
 
 ```bash
 make test-playwright-one
-# o
+# or
 pytest tests_playwright/test_search_flow.py::test_search_trains_flow_ourense_madrid -v -s
 ```
 
-#### Configuración de Playwright:
+#### Playwright configuration:
 
-Los tests de Playwright se pueden configurar con variables de entorno:
+Playwright tests can be configured with environment variables:
 
 ```bash
-# Ejecutar en modo headless (sin navegador visible)
+# Run in headless mode (no visible browser)
 PLAYWRIGHT_HEADLESS=true pytest tests_playwright/ -v
 
-# Ralentizar acciones para mejor visualización (milisegundos)
+# Slow down actions for better visualization (milliseconds)
 PLAYWRIGHT_SLOWMO=1000 pytest tests_playwright/ -v -s
 
-# Grabar videos de los tests
+# Record test videos
 PLAYWRIGHT_VIDEO=true pytest tests_playwright/ -v
 
-# Cambiar viewport
+# Change viewport
 PLAYWRIGHT_WIDTH=1920 PLAYWRIGHT_HEIGHT=1080 pytest tests_playwright/ -v -s
 ```
 
-Ver `tests_playwright/README.md` para más detalles sobre configuración y tests disponibles.
+### Test Coverage
 
-### Cobertura de Tests
-
-El proyecto usa `pytest-cov` para analizar la cobertura de código. Hay varias formas de ver la cobertura:
+The project uses `pytest-cov` to analyze code coverage. There are several ways to view coverage:
 
 ```bash
-# Ver cobertura en terminal con líneas no cubiertas
+# View coverage in terminal with uncovered lines
 make test-cov
 
-# Generar reporte HTML interactivo
-make test-html  # Abre htmlcov/index.html
+# Generate interactive HTML report
+make test-html  # Opens htmlcov/index.html
 
-# Re-ejecutar solo tests fallidos
+# Re-run only failed tests
 make test-failed
 ```
 
-#### Estado actual de cobertura:
+#### Current coverage status:
 
-| Módulo | Cobertura | Descripción |
-|--------|-----------|-------------|
-| `app/parser.py` | 90% | Parser HTML independiente y testeado |
-| `app/main.py` | 87% | Endpoint FastAPI con tests de integración |
-| `app/renfe.py` | 24% | Scraper Playwright (necesita más tests) |
+| Module | Coverage | Description |
+|--------|----------|-------------|
+| `app/parser.py` | 90% | Independent and tested HTML parser |
+| `app/main.py` | 87% | FastAPI endpoint with integration tests |
+| `app/renfe.py` | 24% | Playwright scraper (needs more tests) |
 
-Los tests se enfocan en:
-- ✓ Parsing correcto de HTML de trenes
-- ✓ Estructura de datos de trenes y tarifas
-- ✓ Integración del endpoint FastAPI
-- ✓ Validación de parámetros requeridos
+Tests focus on:
+- ✓ Correct HTML parsing of trains
+- ✓ Train and fare data structure
+- ✓ FastAPI endpoint integration
+- ✓ Required parameter validation
 
-### Tests disponibles
+### Available tests
 
 #### `test_fixed_parser_train_lists.py`
 
-Tests del parser de HTML de Renfe (`app/parser.py`) con datos fixture fijos:
+Tests for Renfe HTML parser (`app/parser.py`) with fixed fixture data:
 
-- ✓ Parsea correctamente la estructura de trenes
-- ✓ Extrae información básica (horarios, duración, precios)
-- ✓ Extrae tarifas múltiples con prestaciones
-- ✓ Extrae badges y etiquetas
-- ✓ Identifica accesibilidad y características eco
-- ✓ Reconoce diferentes tipos de servicio
-- ✓ Serializa correctamente a JSON
+- ✓ Correctly parses train structure
+- ✓ Extracts basic information (schedules, duration, prices)
+- ✓ Extracts multiple fares with features
+- ✓ Extracts badges and labels
+- ✓ Identifies accessibility and eco features
+- ✓ Recognizes different service types
+- ✓ Correctly serializes to JSON
 
-Los tests utilizan fixtures de datos reales en `tests/fixtures/train_list_sample.html`
+Tests use real data fixtures in `tests/fixtures/train_list_sample.html`
 
 #### `test_api_endpoint.py`
 
-Tests del endpoint FastAPI (`/trains`) usando fixtures de respuestas reales:
+Tests for FastAPI endpoint (`/trains`) using real response fixtures:
 
-- ✓ Verifica estructura de respuesta del endpoint
-- ✓ Valida número de trenes parseados
-- ✓ Comprueba estructura de datos de trenes
-- ✓ Prueba endpoint con fecha de vuelta
-- ✓ Valida parámetros requeridos
+- ✓ Verifies endpoint response structure
+- ✓ Validates number of parsed trains
+- ✓ Checks train data structure
+- ✓ Tests endpoint with return date
+- ✓ Validates required parameters
 
-Los tests utilizan mocks y fixtures en `tests/fixtures/renfe_response_sample.html`
+Tests use mocks and fixtures in `tests/fixtures/renfe_response_sample.html`
 
-### Parser independiente
+### Independent parser
 
-El parser (`app/parser.py`) con la función `parse_train_list_html()` es independiente y puede usarse para parsear HTML de Renfe sin necesidad de Playwright. Es agnóstico de si es ida o vuelta.
+The parser (`app/parser.py`) with the `parse_train_list_html()` function is independent and can be used to parse Renfe HTML without needing Playwright. It's agnostic of whether it's outbound or return.
 
-### Limpieza
+### Cleanup
 
-Para limpiar archivos temporales y caches:
+To clean temporary files and caches:
 
 ```bash
-make clean  # Limpia __pycache__, .pytest_cache, htmlcov, etc.
+make clean  # Cleans __pycache__, .pytest_cache, htmlcov, etc.
 ```
