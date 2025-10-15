@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 import re
 import logging
 
-from .renfe import TrainModel, FareOption
+from .renfe_common import TrainModel, FareOption
 
 logger = logging.getLogger(__name__)
 

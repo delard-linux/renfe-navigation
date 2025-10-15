@@ -11,7 +11,7 @@ NOTE: These tests run with a VISIBLE browser by default
 import pytest
 import os
 
-from app.renfe import search_trains_flow
+from app.search_trains_flow_service import search_trains_flow
 
 
 @pytest.mark.asyncio

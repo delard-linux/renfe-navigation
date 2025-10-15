@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from app.parser import parse_train_list_html
-from app.renfe import TrainModel
+from app.renfe_common import TrainModel
 
 
 @pytest.fixture
