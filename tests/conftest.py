@@ -1,3 +1,3 @@
 """
-Configuración de pytest para los tests
+Pytest configuration for tests
 """

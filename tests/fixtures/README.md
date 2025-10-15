@@ -1,12 +1,12 @@
 # Test Fixtures
 
-Este directorio contiene datos de prueba estáticos para los tests unitarios.
+This directory contains static test data for unit tests.
 
 ## Archivos
 
 ### `train_list_sample.html`
 
-Respuesta HTML real de Renfe con la lista de trenes de ejemplo (solo el div de la lista).
+Real Renfe HTML response with the sample train list (only the list div).
 
 - **Origen:** OURENSE
 - **Destino:** MADRID
@@ -14,11 +14,11 @@ Respuesta HTML real de Renfe con la lista de trenes de ejemplo (solo el div de l
 - **Trenes:** 11 trenes (AVLO, AVE, ALVIA)
 - **Uso:** Test del parser `parse_train_list_html()` en `test_fixed_parser_train_lists.py`
 
-Este archivo es agnóstico de si es ida o vuelta, ya que el parser extrae la estructura independientemente de la dirección del viaje.
+This file is agnostic to outbound or return, since the parser extracts the structure regardless of travel direction.
 
 ### `renfe_response_sample.html`
 
-Respuesta HTML completa de Renfe (página completa).
+Full Renfe HTML response (entire page).
 
 - **Origen:** OURENSE
 - **Destino:** MADRID
@@ -26,5 +26,5 @@ Respuesta HTML completa de Renfe (página completa).
 - **Trenes:** 11 trenes (AVLO, AVE, ALVIA)
 - **Uso:** Test del endpoint API en `test_api_endpoint.py`
 
-Este archivo contiene la respuesta completa del servidor de Renfe, incluyendo todos los elementos de la página.
+This file contains the full Renfe server response, including all page elements.
 

@@ -1,8 +1,8 @@
 """
-Tests unitarios del parser de listas de trenes de Renfe usando fixtures fijas
+Unit tests for Renfe train list parser using fixed fixtures.
 
-Ejecutar con: pytest tests/test_fixed_parser_train_lists.py -v
-O todos los tests: pytest tests/ -v
+Run: pytest tests/test_fixed_parser_train_lists.py -v
+Or all tests: pytest tests/ -v
 """
 
 import json
@@ -16,41 +16,41 @@ from app.renfe import TrainModel
 
 @pytest.fixture
 def train_list_html():
-    """Fixture que carga el HTML de ejemplo de lista de trenes"""
+    """Fixture that loads sample train list HTML"""
     fixture_file = Path(__file__).parent / "fixtures" / "train_list_sample.html"
     with open(fixture_file, "r", encoding="utf-8") as f:
         return f.read()
 
 
 def test_parse_train_list_html_returns_trains(train_list_html):
-    """Test que verifica que se parsean trenes correctamente"""
+    """Test that verifies trains are parsed correctly"""
     trains = parse_train_list_html(train_list_html)
 
-    assert len(trains) > 0, "Debe parsear al menos un tren"
-    assert isinstance(trains[0], TrainModel), "Debe devolver objetos TrainModel"
+    assert len(trains) > 0, "Must parse at least one train"
+    assert isinstance(trains[0], TrainModel), "Must return TrainModel objects"
 
 
 def test_parse_train_list_html_extracts_basic_info(train_list_html):
-    """Test que verifica que se extrae la información básica de los trenes"""
+    """Test that verifies basic train information is extracted"""
     trains = parse_train_list_html(train_list_html)
 
     first_train = trains[0]
 
-    # Verificar que se extrae la información básica
-    assert first_train.train_id != "", "Debe tener ID"
-    assert first_train.service_type != "", "Debe tener tipo de servicio"
-    assert first_train.departure_time != "", "Debe tener hora de salida"
-    assert first_train.arrival_time != "", "Debe tener hora de llegada"
-    assert first_train.duration != "", "Debe tener duración"
-    assert first_train.price_from > 0, "Debe tener precio"
-    assert first_train.currency == "EUR", "La moneda debe ser EUR"
+    # Verify basic information is extracted
+    assert first_train.train_id != "", "Must have ID"
+    assert first_train.service_type != "", "Must have service type"
+    assert first_train.departure_time != "", "Must have departure time"
+    assert first_train.arrival_time != "", "Must have arrival time"
+    assert first_train.duration != "", "Duration must not be empty"
+    assert first_train.price_from > 0, "Must have price"
+    assert first_train.currency == "EUR", "Currency must be EUR"
 
 
 def test_parse_train_list_html_extracts_fares(train_list_html):
-    """Test que verifica que se extraen las tarifas correctamente"""
+    """Test that verifies fares are extracted correctly"""
     trains = parse_train_list_html(train_list_html)
 
-    # Buscar un tren con múltiples tarifas (típicamente los AVE)
+    # Find a train with multiple fares (typically AVE)
     train_with_fares = None
     for train in trains:
         if len(train.fares) > 1:
@@ -58,171 +58,171 @@ def test_parse_train_list_html_extracts_fares(train_list_html):
             break
 
     assert train_with_fares is not None, (
-        "Debe haber al menos un tren con múltiples tarifas"
+        "There must be at least one train with multiple fares"
     )
 
-    # Verificar estructura de tarifas
+    # Verify fare structure
     fare = train_with_fares.fares[0]
-    assert fare.name != "", "La tarifa debe tener nombre"
-    assert fare.price > 0, "La tarifa debe tener precio"
-    assert fare.currency == "EUR", "La moneda debe ser EUR"
-    assert fare.code is not None, "La tarifa debe tener código"
-    assert len(fare.features) > 0, "La tarifa debe tener prestaciones"
+    assert fare.name != "", "Fare must have name"
+    assert fare.price > 0, "Fare must have price"
+    assert fare.currency == "EUR", "Currency must be EUR"
+    assert fare.code is not None, "Fare must have code"
+    assert len(fare.features) > 0, "Fare must have features"
 
 
 def test_parse_train_list_html_extracts_badges(train_list_html):
-    """Test que verifica que se extraen los badges correctamente"""
+    """Test that verifies badges are extracted correctly"""
     trains = parse_train_list_html(train_list_html)
 
-    # Buscar un tren con badges
+    # Find a train with badges
     train_with_badges = None
     for train in trains:
         if len(train.badges) > 0:
             train_with_badges = train
             break
 
-    assert train_with_badges is not None, "Debe haber al menos un tren con badges"
-    assert isinstance(train_with_badges.badges, list), "Los badges deben ser una lista"
-    assert len(train_with_badges.badges[0]) > 0, "Los badges no deben estar vacíos"
+    assert train_with_badges is not None, "There must be at least one train with badges"
+    assert isinstance(train_with_badges.badges, list), "Badges must be a list"
+    assert len(train_with_badges.badges[0]) > 0, "Badges must not be empty"
 
 
 def test_parse_train_list_html_extracts_accessibility(train_list_html):
-    """Test que verifica que se extraen las características de accesibilidad y eco"""
+    """Test that verifies accessibility and eco features are extracted"""
     trains = parse_train_list_html(train_list_html)
 
-    # Debe haber al menos un tren accesible
+    # There must be at least one accessible train
     accessible_trains = [t for t in trains if t.accessible]
-    assert len(accessible_trains) > 0, "Debe haber trenes accesibles"
+    assert len(accessible_trains) > 0, "There must be accessible trains"
 
-    # Debe haber al menos un tren eco-friendly
+    # There must be at least one eco-friendly train
     eco_trains = [t for t in trains if t.eco_friendly]
-    assert len(eco_trains) > 0, "Debe haber trenes eco-friendly"
+    assert len(eco_trains) > 0, "There must be eco-friendly trains"
 
 
 def test_parse_train_list_html_service_types(train_list_html):
-    """Test que verifica que se reconocen diferentes tipos de servicio"""
+    """Test that verifies different service types are recognized"""
     trains = parse_train_list_html(train_list_html)
 
     service_types = {train.service_type for train in trains}
 
-    # Debe haber múltiples tipos de servicio
-    assert len(service_types) > 1, "Debe haber más de un tipo de servicio"
+    # There must be multiple service types
+    assert len(service_types) > 1, "There must be more than one service type"
 
-    # Tipos conocidos de Renfe
+    # Known Renfe types
     known_types = {"AVE", "AVLO", "ALVIA", "AVANT", "MD", "Intercity"}
     assert len(service_types & known_types) > 0, (
-        "Debe reconocer tipos de servicio conocidos"
+        "Must recognize known service types"
     )
 
 
 def test_parse_train_list_html_price_range(train_list_html):
-    """Test que verifica el rango de precios"""
+    """Test that verifies price range"""
     trains = parse_train_list_html(train_list_html)
 
     prices = [train.price_from for train in trains]
 
-    assert min(prices) > 0, "El precio mínimo debe ser mayor que 0"
-    assert max(prices) > min(prices), "Debe haber variación en los precios"
+    assert min(prices) > 0, "Minimum price must be greater than 0"
+    assert max(prices) > min(prices), "There must be price variation"
 
 
 def test_parse_train_list_html_fare_features(train_list_html):
-    """Test que verifica que las tarifas tienen prestaciones detalladas"""
+    """Test that verifies fares have detailed features"""
     trains = parse_train_list_html(train_list_html)
 
-    # Encontrar una tarifa con features
+    # Find a fare with features
     all_features = []
     for train in trains:
         for fare in train.fares:
             all_features.extend(fare.features)
 
-    assert len(all_features) > 0, "Debe haber prestaciones en las tarifas"
+    assert len(all_features) > 0, "There must be features in fares"
 
-    # Verificar que las features no están vacías
+    # Verify features are not empty
     non_empty_features = [f for f in all_features if f.strip()]
     assert len(non_empty_features) == len(all_features), (
-        "Las features no deben estar vacías"
+        "Features must not be empty"
     )
 
 
 def test_parse_train_list_html_json_serializable(train_list_html):
-    """Test que verifica que los trenes se pueden serializar a JSON"""
+    """Test that verifies trains can be serialized to JSON"""
     trains = parse_train_list_html(train_list_html)
 
-    # Intentar serializar el primer tren
+    # Try serializing the first train
     train_dict = trains[0].model_dump()
     json_str = json.dumps(train_dict, ensure_ascii=False)
 
-    assert len(json_str) > 0, "Debe poder serializar a JSON"
+    assert len(json_str) > 0, "Must be able to serialize to JSON"
 
-    # Intentar deserializar
+    # Try deserializing
     parsed = json.loads(json_str)
     assert parsed["train_id"] == trains[0].train_id, (
-        "Debe mantener los datos al serializar"
+        "Must keep data after serialization"
     )
 
 
-# Test principal que se puede ejecutar directamente para mostrar resultados
+# Main test that can be run directly to display results
 def test_parse_train_list_html_display_results(train_list_html, capsys):
-    """Test que parsea y muestra resultados detallados (solo cuando se ejecuta con -v)"""
+    """Test that parses and displays detailed results (only when run with -v)"""
     trains = parse_train_list_html(train_list_html)
 
     print(f"\n{'=' * 80}")
-    print("RESULTADOS DEL PARSING")
+    print("PARSING RESULTS")
     print(f"{'=' * 80}\n")
-    print(f"✓ Trenes encontrados: {len(trains)}\n")
+    print(f"✓ Trains found: {len(trains)}\n")
 
     # Mostrar resumen del primer tren
     if trains:
         train = trains[0]
-        print(f"Ejemplo - Tren #{train.train_id}:")
-        print(f"  Tipo:       {train.service_type}")
-        print(f"  Salida:     {train.departure_time}")
-        print(f"  Llegada:    {train.arrival_time}")
-        print(f"  Duración:   {train.duration}")
-        print(f"  Precio:     {train.price_from} {train.currency}")
-        print(f"  Tarifas:    {len(train.fares)}")
-        print(f"  Accesible:  {train.accessible}")
+        print(f"Example - Train #{train.train_id}:")
+        print(f"  Type:       {train.service_type}")
+        print(f"  Departure:  {train.departure_time}")
+        print(f"  Arrival:    {train.arrival_time}")
+        print(f"  Duration:   {train.duration}")
+        print(f"  Price:      {train.price_from} {train.currency}")
+        print(f"  Fares:      {len(train.fares)}")
+        print(f"  Accessible: {train.accessible}")
         print(f"  Eco:        {train.eco_friendly}")
 
         if train.fares:
             print(
-                f"\n  Primera tarifa: {train.fares[0].name} - {train.fares[0].price} EUR"
+                f"\n  First fare: {train.fares[0].name} - {train.fares[0].price} EUR"
             )  # noqa: F541
 
-    # Estadísticas
+    # Statistics
     print(f"\n{'=' * 80}")
-    print("ESTADÍSTICAS")
+    print("STATISTICS")
     print(f"{'=' * 80}")
-    print(f"Total trenes:           {len(trains)}")
-    print(f"Precio mínimo:          {min(t.price_from for t in trains)} EUR")
-    print(f"Precio máximo:          {max(t.price_from for t in trains)} EUR")
+    print(f"Total trains:           {len(trains)}")
+    print(f"Minimum price:          {min(t.price_from for t in trains)} EUR")
+    print(f"Maximum price:          {max(t.price_from for t in trains)} EUR")
 
     service_types = {}
     for train in trains:
         service_types[train.service_type] = service_types.get(train.service_type, 0) + 1
 
-    print("\nTipos de servicio:")
+    print("\nService types:")
     for service, count in service_types.items():
-        print(f"  - {service}: {count} trenes")
+        print(f"  - {service}: {count} trains")
 
     total_fares = sum(len(t.fares) for t in trains)
-    print(f"\nTotal tarifas:          {total_fares}")
-    print(f"Promedio tarifas/tren:  {total_fares / len(trains):.1f}")
+    print(f"\nTotal fares:            {total_fares}")
+    print(f"Average fares/train:    {total_fares / len(trains):.1f}")
 
     accessible_count = sum(1 for t in trains if t.accessible)
     eco_count = sum(1 for t in trains if t.eco_friendly)
 
     print(
-        f"\nTrenes accesibles:      {accessible_count} ({accessible_count / len(trains) * 100:.1f}%)"
+        f"\nAccessible trains:      {accessible_count} ({accessible_count / len(trains) * 100:.1f}%)"
     )
-    print(f"Trenes eco-friendly:    {eco_count} ({eco_count / len(trains) * 100:.1f}%)")
+    print(f"Eco-friendly trains:    {eco_count} ({eco_count / len(trains) * 100:.1f}%)")
     print(f"\n{'=' * 80}\n")
 
-    # Aserciones finales
-    assert len(trains) == 11, "El archivo de ejemplo debe tener 11 trenes"
-    assert total_fares > 0, "Debe haber tarifas parseadas"
+    # Final assertions
+    assert len(trains) == 11, "Sample file must have 11 trains"
+    assert total_fares > 0, "Fares must be parsed"
 
 
 if __name__ == "__main__":
-    # Permitir ejecución directa del test para debugging
+    # Allow direct execution for debugging
     pytest.main([__file__, "-v", "-s"])

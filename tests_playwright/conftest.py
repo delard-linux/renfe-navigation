@@ -1,8 +1,8 @@
 """
-Configuración de pytest para tests de Playwright.
+Pytest configuration for Playwright tests.
 
-Este archivo configura pytest específicamente para tests end-to-end
-que usan Playwright, habilitando el modo debug por defecto.
+This file configures pytest specifically for end-to-end tests
+that use Playwright, enabling debug mode by default.
 """
 
 import pytest
@@ -10,14 +10,14 @@ import os
 import sys
 import logging
 
-# Configurar logging para tests de Playwright
+# Configure logging for Playwright tests
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    force=True,  # Forzar reconfiguración del logging
+    force=True,  # Force logging reconfiguration
 )
 
-# Configuración estándar de Playwright para todos los tests E2E
+# Standard Playwright configuration for all E2E tests
 PLAYWRIGHT_CONFIG = {
     "headless": False,
     "viewport_width": 1920,
@@ -29,19 +29,19 @@ PLAYWRIGHT_CONFIG = {
 @pytest.fixture(scope="session", autouse=True)
 def configure_playwright_debug():
     """
-    Fixture que configura el logging para tests de Playwright.
+    Fixture that configures logging for Playwright tests.
 
-    Se ejecuta automáticamente antes de todos los tests en esta carpeta.
+    Runs automatically before all tests in this folder.
     """
-    # Configurar logging específico para tests
+    # Configure test-specific logging
     logger = logging.getLogger("app.renfe")
     logger.setLevel(logging.INFO)
 
-    # Limpiar handlers existentes para evitar duplicados
+    # Clear existing handlers to avoid duplicates
     logger.handlers.clear()
-    logger.propagate = False  # Evitar que se propague al logger raíz
+    logger.propagate = False  # Avoid propagation to root logger
 
-    # Añadir handler único para consola
+    # Add single console handler
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(logging.INFO)
     formatter = logging.Formatter(
@@ -51,11 +51,11 @@ def configure_playwright_debug():
     logger.addHandler(handler)
 
     print("\n" + "=" * 60)
-    print("🎭 PLAYWRIGHT DEBUG MODE ACTIVADO")
+    print("🎭 PLAYWRIGHT DEBUG MODE ENABLED")
     print("=" * 60)
-    print(f"⚙️  headless: {PLAYWRIGHT_CONFIG['headless']} ({'navegador oculto' if PLAYWRIGHT_CONFIG['headless'] else 'navegador visible'})")
-    print(f"⚙️  slow_mo: {PLAYWRIGHT_CONFIG['slow_mo']}ms")
-    print("⚙️  logging: INFO level activado")
+    print(f"⚙️  headless: {PLAYWRIGHT_CONFIG['headless']} ({'headless' if PLAYWRIGHT_CONFIG['headless'] else 'visible browser'})")
+    print(f"⚙️  slow_mo: {PLAYWRRIGHT_CONFIG['slow_mo']}ms")
+    print("⚙️  logging: INFO level enabled")
     print(f"⚙️  viewport: {PLAYWRIGHT_CONFIG['viewport_width']}x{PLAYWRIGHT_CONFIG['viewport_height']}")
     print("=" * 60 + "\n")
 
@@ -63,9 +63,9 @@ def configure_playwright_debug():
 @pytest.fixture(scope="session")
 def playwright_config():
     """
-    Fixture que proporciona la configuración completa de Playwright para los tests.
+    Fixture that provides the complete Playwright configuration for tests.
 
     Returns:
-        dict: Configuración de Playwright con headless, viewport y slow_mo
+        dict: Playwright configuration with headless, viewport and slow_mo
     """
     return PLAYWRIGHT_CONFIG.copy()

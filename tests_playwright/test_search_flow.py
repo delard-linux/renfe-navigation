@@ -1,11 +1,11 @@
 """
-Tests end-to-end para el flujo completo de búsqueda de trenes.
+End-to-end tests for the complete train search flow.
 
-Estos tests usan Playwright para verificar el flujo real navegando por
-la página de Renfe, rellenando el formulario y obteniendo resultados.
+These tests use Playwright to verify the real flow by navigating
+Renfe's page, filling the form, and getting results.
 
-NOTA: Estos tests se ejecutan con el navegador VISIBLE por defecto
-      gracias a la configuración en conftest.py
+NOTE: These tests run with a VISIBLE browser by default
+      thanks to the configuration in conftest.py
 """
 
 import pytest
@@ -17,16 +17,16 @@ from app.renfe import search_trains_flow
 @pytest.mark.asyncio
 async def test_search_trains_flow_ourense_madrid(playwright_config):
     """
-    Test del flujo completo: Ourense -> Madrid (solo ida).
+    Full flow test: Ourense -> Madrid (one way).
 
-    Verifica:
-    - Navegación a la página inicial
-    - Aceptación de cookies
-    - Rellenado de formulario
-    - Búsqueda exitosa
-    - Guardado de respuesta
+    Verifies:
+    - Navigate to homepage
+    - Accept cookies
+    - Fill form
+    - Successful search
+    - Response saved
     """
-    print("\n🚂 Test: Ourense -> Madrid (solo ida)")
+    print("\n🚂 Test: Ourense -> Madrid (one way)")
 
     # Ejecutar el flujo (usará configuración de conftest.py)
     filepath = await search_trains_flow(
@@ -38,33 +38,33 @@ async def test_search_trains_flow_ourense_madrid(playwright_config):
         playwright=playwright_config,
     )
 
-    # Verificaciones
-    assert filepath is not None, "El flujo debe retornar una ruta de archivo"
-    assert os.path.exists(filepath), f"El archivo debe existir: {filepath}"
+    # Assertions
+    assert filepath is not None, "Flow must return a file path"
+    assert os.path.exists(filepath), f"File must exist: {filepath}"
     assert "buscarTrenFlow.do.log" in filepath, (
-        "El archivo debe tener el nombre correcto"
+        "File must have the correct name"
     )
 
-    # Verificar que el archivo no está vacío
+    # Verify file is not empty
     file_size = os.path.getsize(filepath)
     assert file_size > 1000, (
-        f"El archivo debe tener contenido (size: {file_size} bytes)"
+        f"File must have content (size: {file_size} bytes)"
     )
 
-    print(f"✅ Respuesta guardada: {filepath}")
-    print(f"📊 Tamaño: {file_size / 1024:.2f} KB")
+    print(f"✅ Response saved: {filepath}")
+    print(f"📊 Size: {file_size / 1024:.2f} KB")
 
 
 @pytest.mark.asyncio
 async def test_search_trains_flow_barcelona_madrid_roundtrip(playwright_config):
     """
-    Test del flujo completo: Barcelona -> Madrid (ida y vuelta).
+    Full flow test: Barcelona -> Madrid (round trip).
 
-    Verifica:
-    - Rellenado con fecha de vuelta
-    - Búsqueda de viaje redondo
+    Verifies:
+    - Fill with return date
+    - Round trip search
     """
-    print("\n🚂 Test: Barcelona -> Madrid (ida y vuelta)")
+    print("\n🚂 Test: Barcelona -> Madrid (round trip)")
 
     filepath = await search_trains_flow(
         origin="BARCELONA",
@@ -77,21 +77,21 @@ async def test_search_trains_flow_barcelona_madrid_roundtrip(playwright_config):
 
     assert filepath is not None
     assert os.path.exists(filepath)
-    assert "200" in filepath, "Debe ser respuesta exitosa (código 200)"
+    assert "200" in filepath, "Must be successful response (200 code)"
 
-    print(f"✅ Respuesta guardada: {filepath}")
+    print(f"✅ Response saved: {filepath}")
 
 
 @pytest.mark.asyncio
 async def test_search_trains_flow_multiple_passengers(playwright_config):
     """
-    Test con múltiples pasajeros: Madrid -> Sevilla.
+    Test with multiple passengers: Madrid -> Sevilla.
 
-    Verifica:
-    - Configuración de 4 pasajeros
-    - Búsqueda exitosa
+    Verifies:
+    - Configure 4 passengers
+    - Successful search
     """
-    print("\n🚂 Test: Madrid -> Sevilla (4 pasajeros)")
+    print("\n🚂 Test: Madrid -> Sevilla (4 passengers)")
 
     filepath = await search_trains_flow(
         origin="MADRID",
@@ -105,16 +105,16 @@ async def test_search_trains_flow_multiple_passengers(playwright_config):
     assert filepath is not None
     assert os.path.exists(filepath)
 
-    print(f"✅ Respuesta guardada: {filepath}")
+    print(f"✅ Response saved: {filepath}")
 
 
 @pytest.mark.asyncio
 @pytest.mark.slow
 async def test_search_trains_flow_valencia_alicante(playwright_config):
     """
-    Test adicional: Valencia -> Alicante.
+    Additional test: Valencia -> Alicante.
 
-    Marcado como 'slow' para ejecución opcional.
+    Marked as 'slow' for optional execution.
     """
     print("\n🚂 Test: Valencia -> Alicante")
 
@@ -130,10 +130,10 @@ async def test_search_trains_flow_valencia_alicante(playwright_config):
     assert filepath is not None
     assert os.path.exists(filepath)
 
-    print(f"✅ Respuesta guardada: {filepath}")
+    print(f"✅ Response saved: {filepath}")
 
 
 if __name__ == "__main__":
-    # Permitir ejecutar tests directamente
-    print("Ejecutando tests de Playwright...")
+    # Allow running tests directly
+    print("Running Playwright tests...")
     pytest.main([__file__, "-v", "-s"])
