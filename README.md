@@ -23,8 +23,9 @@ renfe-navigation/
 │   ├── conftest.py          # Configuración para modo debug (headless=False)
 │   └── test_search_flow.py  # Tests E2E del flujo completo
 ├── pytest.ini               # Configuración de pytest
+├── pyproject.toml           # Configuración de Poetry
+├── poetry.lock              # Lock file de dependencias
 ├── Makefile                 # Comandos útiles
-├── requirements.txt
 └── README.md
 ```
 
