@@ -17,6 +17,7 @@ from .renfe_common import (
     find_station,
     format_date,
     parse_and_save_trains_json,
+    get_default_playwright_config,
 )
 
 logger = logging.getLogger(__name__)
@@ -106,33 +107,13 @@ async def search_trains_flow(
 
     async with async_playwright() as p:
         # Extract Playwright configuration
-        cfg = playwright or {}
-        headless = bool(cfg.get("headless", True))
-        viewport_width = int(cfg.get("viewport_width", 1280))
-        viewport_height = int(cfg.get("viewport_height", 720))
-        slow_mo = int(cfg.get("slow_mo", 0))
-
-        # Configure browser args
-        browser_args = []
-        if not headless:
-            browser_args = [
-                "--start-maximized",
-                f"--window-size={viewport_width},{viewport_height}",
-            ]
+        cfg = playwright or get_default_playwright_config()
 
         browser = await p.chromium.launch(
-            headless=headless, args=browser_args, slow_mo=slow_mo
+            headless=cfg["headless"], slow_mo=cfg["slow_mo"]
         )
 
-        # Configure context with viewport if not headless
-        context_options = {}
-        if not headless:
-            context_options = {
-                "viewport": {"width": viewport_width, "height": viewport_height},
-                "no_viewport": False,
-            }
-
-        context = await browser.new_context(**context_options)
+        context = await browser.new_context(locale=cfg.get("locale", "es-ES"))
         page = await context.new_page()
 
         try:

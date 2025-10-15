@@ -76,6 +76,7 @@ async def get_trains(
             date_out=date_out,
             date_return=date_return,
             adults=adults,
+            playwright={},  # use default config; can be parameterized via env
         )
 
         # Map scraper models (TrainModel) to API model (Train)

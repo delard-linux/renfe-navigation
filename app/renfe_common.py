@@ -232,3 +232,20 @@ def format_date(date_str: str) -> str:
     date_obj = datetime.strptime(date_str, "%Y-%m-%d")
     return date_obj.strftime("%d/%m/%Y")
 
+
+def get_default_playwright_config() -> dict:
+    """
+    Return default Playwright configuration used by services when no explicit
+    configuration is provided by the caller.
+
+    Returns:
+        dict: { headless, viewport_width, viewport_height, slow_mo }
+    """
+    return {
+        "headless": True,
+        "viewport_width": 1280,
+        "viewport_height": 720,
+        "slow_mo": 0,
+        "locale": "es-ES",
+    }
+
