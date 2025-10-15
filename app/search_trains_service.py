@@ -43,6 +43,7 @@ async def search_trains(
     date_out: str,
     date_return: Optional[str],
     adults: int,
+    playwright: Optional[dict] = None,
 ) -> Tuple[List[TrainModel], Optional[List[TrainModel]]]:
     """
     Perform a direct train search using Renfe's API.
@@ -113,8 +114,27 @@ async def search_trains(
     )
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context(locale="es-ES")
+        cfg = playwright or {}
+        headless = bool(cfg.get("headless", True))
+        viewport_width = int(cfg.get("viewport_width", 1280))
+        viewport_height = int(cfg.get("viewport_height", 720))
+        slow_mo = int(cfg.get("slow_mo", 0))
+
+        browser_args = []
+        if not headless:
+            browser_args = [
+                "--start-maximized",
+                f"--window-size={viewport_width},{viewport_height}",
+            ]
+
+        browser = await p.chromium.launch(headless=headless, args=browser_args, slow_mo=slow_mo)
+        context_options = {"locale": "es-ES"}
+        if not headless:
+            context_options.update({
+                "viewport": {"width": viewport_width, "height": viewport_height},
+                "no_viewport": False,
+            })
+        context = await browser.new_context(**context_options)
         page = await context.new_page()
 
         logger.info(f"[SCRAPER] Sending POST to {RENFE_SEARCH_URL}")
