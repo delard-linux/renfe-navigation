@@ -14,77 +14,77 @@ RESPONSES_DIR = os.path.join(os.path.dirname(__file__), "..", "responses")
 
 
 class FareOption(BaseModel):
-    """Tarifa individual de un tren"""
+    """Individual train fare"""
 
     name: str  # Básico, Elige, Elige Confort, Prémium, Básica
     price: float
     currency: str = "EUR"
     code: Optional[str] = None  # data-cod-tarifa
     tp_enlace: Optional[str] = None  # data-cod-tpenlacesilencio
-    features: List[str] = []  # Lista de prestaciones
+    features: List[str] = []  # Features list
 
 
 class TrainModel(BaseModel):
-    """Tren individual con todas sus tarifas"""
+    """Train with all fares and attributes"""
 
-    train_id: str  # ID del tren (e.g., "i_1")
+    train_id: str  # Train id (e.g., "i_1")
     service_type: str  # AVE, AVLO, ALVIA, etc.
-    departure_time: str  # Hora de salida (e.g., "06:24")
-    arrival_time: str  # Hora de llegada (e.g., "08:49")
-    duration: str  # Duración (e.g., "2 horas 25 minutos")
-    price_from: float  # Precio mínimo
+    departure_time: str  # Departure time (e.g., "06:24")
+    arrival_time: str  # Arrival time (e.g., "08:49")
+    duration: str  # Duration (e.g., "2 horas 25 minutos")
+    price_from: float  # Minimum price
     currency: str = "EUR"
-    fares: List[FareOption] = []  # Lista de tarifas disponibles
-    badges: List[str] = []  # Etiquetas (Precio más bajo, Más rápido, etc.)
-    accessible: bool = False  # Plaza H disponible
-    eco_friendly: bool = False  # Cero emisiones
+    fares: List[FareOption] = []  # Available fares
+    badges: List[str] = []  # Labels (lowest price, fastest, etc.)
+    accessible: bool = False  # H seat available
+    eco_friendly: bool = False  # Zero emissions
 
 
-# Helper para cargar el parser de forma robusta, evitando imports relativos
+# Helper to load the parser robustly, avoiding relative imports
 _def_parse_train_list_html = None
 
 
 def _get_parse_train_list_html():
     """
-    Obtener la función parse_train_list_html de forma dinámica.
+    Dynamically obtain the parse_train_list_html function.
 
-    NOTA: Esta función centraliza la importación del parser para evitar
-    problemas de imports circulares y diferentes contextos de ejecución.
+    NOTE: This function centralizes the import to avoid circular imports and
+    differences across execution contexts.
     """
     global _def_parse_train_list_html
     if _def_parse_train_list_html is not None:
         return _def_parse_train_list_html
 
-    # Ahora que el paquete está instalado, podemos usar import directo
+    # Now that the package is installed, import directly
     try:
         from app.parser import parse_train_list_html
 
         _def_parse_train_list_html = parse_train_list_html
-        logger.debug("[SCRAPER] Parser importado desde app.parser")
+        logger.debug("[SCRAPER] Parser imported from app.parser")
         return parse_train_list_html
     except ImportError as e:
-        # Fallback: intentar import relativo
+        # Fallback: try relative import
         try:
             from .parser import parse_train_list_html
 
             _def_parse_train_list_html = parse_train_list_html
-            logger.debug("[SCRAPER] Parser importado con import relativo")
+            logger.debug("[SCRAPER] Parser imported via relative import")
             return parse_train_list_html
         except ImportError as e2:
-            error_msg = f"No se pudo importar parse_train_list_html. Errores: {e}, {e2}"
+            error_msg = f"Could not import parse_train_list_html. Errors: {e}, {e2}"
             logger.error(f"[SCRAPER] {error_msg}")
             raise ImportError(error_msg)
 
 
 def _ensure_responses_dir():
-    """Crea el directorio responses si no existe"""
+    """Create responses directory if missing"""
     os.makedirs(RESPONSES_DIR, exist_ok=True)
 
 
 def _save_response(
     content: str, status_code: int = 200, filename_suffix: str = "buscarTren.do.log"
 ):
-    """Guarda la respuesta HTML con el formato [AAMMDD_HH24MISS]_[Status code]_[filename_suffix]"""
+    """Save HTML response using format [AAMMDD_HH24MISS]_[Status code]_[filename_suffix]"""
     _ensure_responses_dir()
     timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
     filename = f"{timestamp}_{status_code}_{filename_suffix}"
@@ -93,10 +93,10 @@ def _save_response(
     try:
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(content)
-        logger.info(f"[SCRAPER] Respuesta guardada en: {filename}")
+        logger.info(f"[SCRAPER] Response saved as: {filename}")
         return filepath
     except Exception as e:
-        logger.error(f"[SCRAPER] Error guardando respuesta: {e}")
+        logger.error(f"[SCRAPER] Error saving response: {e}")
         return None
 
 
@@ -106,15 +106,15 @@ def _parse_and_save_trains_json(
     filename_suffix: str = "buscarTren.do.log"
 ) -> tuple[List[TrainModel], str]:
     """
-    Parsea el HTML de resultados de trenes y guarda tanto HTML como JSON.
-    
+    Parse train results HTML and save both HTML and pretty JSON.
+
     Args:
-        html_content: Contenido HTML de la página de resultados
-        status_code: Código de estado HTTP
-        filename_suffix: Sufijo para el nombre del archivo
-        
+        html_content: HTML content of the results page
+        status_code: HTTP status code
+        filename_suffix: Suffix for output filename
+
     Returns:
-        Tuple con (lista_de_trenes, ruta_del_archivo_html)
+        Tuple with (trains_list, html_filepath)
     """
     # Guardar HTML
     html_filepath = _save_response(html_content, status_code, filename_suffix)
@@ -123,21 +123,21 @@ def _parse_and_save_trains_json(
     try:
         parse_train_list_html = _get_parse_train_list_html()
         trains = parse_train_list_html(html_content)
-        logger.info(f"[PARSER] Trenes extraídos: {len(trains)}")
+        logger.info(f"[PARSER] Extracted trains: {len(trains)}")
         
         # Guardar JSON con pretty print
         if trains:
             json_filepath = _save_trains_json(trains, status_code, filename_suffix)
-            logger.info(f"[PARSER] JSON guardado en: {json_filepath}")
+            logger.info(f"[PARSER] JSON saved to: {json_filepath}")
         else:
-            logger.warning(f"[PARSER] No se encontraron trenes en el HTML - Status: {status_code}")
-            # Guardar un JSON vacío para debugging
+            logger.warning(f"[PARSER] No trains found in HTML - Status: {status_code}")
+            # Save empty JSON for debugging
             _save_trains_json([], status_code, filename_suffix)
         
         return trains, html_filepath
         
     except Exception as e:
-        logger.error(f"[PARSER] Error parseando HTML de resultados: {e}")
+        logger.error(f"[PARSER] Error parsing results HTML: {e}")
         return [], html_filepath
 
 
@@ -147,40 +147,40 @@ def _save_trains_json(
     filename_suffix: str = "buscarTren.do.log"
 ) -> str:
     """
-    Guarda la lista de trenes como JSON con pretty print.
-    
+    Save train list as pretty-printed JSON.
+
     Args:
-        trains: Lista de trenes parseados
-        status_code: Código de estado HTTP
-        filename_suffix: Sufijo para el nombre del archivo
-        
+        trains: Parsed train list
+        status_code: HTTP status code
+        filename_suffix: Suffix for the filename
+
     Returns:
-        Ruta del archivo JSON guardado
+        Path to the saved JSON file
     """
     _ensure_responses_dir()
     timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
     
-    # Crear nombre de archivo JSON
+    # Build JSON filename
     json_filename = f"{timestamp}_{status_code}_{filename_suffix.replace('.log', '.json')}"
     json_filepath = os.path.join(RESPONSES_DIR, json_filename)
     
     try:
-        # Convertir a diccionarios para serialización JSON
+        # Convert to dictionaries for JSON serialization
         trains_data = [train.model_dump() for train in trains]
         
         with open(json_filepath, "w", encoding="utf-8") as f:
             json.dump(trains_data, f, indent=2, ensure_ascii=False)
         
-        logger.info(f"[PARSER] JSON de trenes guardado en: {json_filename}")
+        logger.info(f"[PARSER] Trains JSON saved as: {json_filename}")
         return json_filepath
         
     except Exception as e:
-        logger.error(f"[PARSER] Error guardando JSON de trenes: {e}")
+        logger.error(f"[PARSER] Error saving trains JSON: {e}")
         return None
 
 
 def _load_stations():
-    """Carga el catálogo de estaciones desde el JSON"""
+    """Load station catalog from JSON"""
     stations_path = os.path.join(
         os.path.dirname(__file__), "resources", "estaciones.json"
     )
@@ -188,31 +188,31 @@ def _load_stations():
         with open(stations_path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
-        logger.warning(f"No se pudo cargar estaciones.json: {e}")
+        logger.warning(f"Could not load estaciones.json: {e}")
         return []
 
 
 def _find_station(station_name: str) -> dict:
-    """Busca una estación por nombre en el catálogo"""
+    """Find a station by name in the catalog"""
     stations = _load_stations()
     station_upper = station_name.upper()
 
-    # Buscar coincidencia exacta primero
+    # Exact match first
     for station in stations:
         if station.get("desgEstacionPlano", "").upper() == station_upper:
             return station
         if station.get("cdgoEstacion", "").upper() == station_upper:
             return station
 
-    # Buscar coincidencia parcial
+    # Partial match
     for station in stations:
         plano = station.get("desgEstacionPlano", "").upper()
         if station_upper in plano or plano.startswith(station_upper):
             return station
 
-    # Si no se encuentra, devolver datos genéricos
+    # If not found, return generic data
     logger.warning(
-        f"Estación '{station_name}' no encontrada en catálogo, usando búsqueda genérica"
+        f"Station '{station_name}' not found in catalog, using generic search"
     )
     return {
         "cdgoEstacion": station_name.upper()[:5],
@@ -224,58 +224,58 @@ def _find_station(station_name: str) -> dict:
 
 async def _select_station_from_dropdown(page, selector: str, station_name: str):
     """
-    Simula la selección de una estación desde el dropdown de autocompletado.
-    
+    Simulate station selection from autocomplete dropdown.
+
     Args:
-        page: Página de Playwright
-        selector: Selector del campo de entrada (ej: "#origin", "#destination")
-        station_name: Nombre de la estación a seleccionar
+        page: Playwright page
+        selector: Input selector (e.g. "#origin", "#destination")
+        station_name: Station name to select
     """
     try:
-        # 1) Hacer click en el campo para activar el dropdown
-        logger.info(f"[FLOW] Activando dropdown para {selector}")
+        # 1) Click the field to activate the dropdown
+        logger.info(f"[FLOW] Activating dropdown for {selector}")
         await page.click(selector, timeout=5000)
         await page.wait_for_timeout(500)
         
-        # 2) Escribir el nombre de la estación para activar el autocompletado
-        logger.info(f"[FLOW] Escribiendo '{station_name}' para activar sugerencias")
+        # 2) Type station name to trigger suggestions
+        logger.info(f"[FLOW] Typing '{station_name}' to trigger suggestions")
         await page.fill(selector, station_name)
         await page.wait_for_timeout(1000)
         
-        # 3) Presionar flecha abajo para seleccionar la primera opción
-        logger.info(f"[FLOW] Presionando flecha abajo para seleccionar opción")
+        # 3) Press ArrowDown to select first option
+        logger.info(f"[FLOW] Pressing ArrowDown to select first option")
         await page.press(selector, "ArrowDown")
         await page.wait_for_timeout(300)
         
-        # 4) Presionar Enter para confirmar la selección
-        logger.info(f"[FLOW] Presionando Enter para confirmar selección")
+        # 4) Press Enter to confirm selection
+        logger.info(f"[FLOW] Pressing Enter to confirm selection")
         await page.press(selector, "Enter")
         await page.wait_for_timeout(500)
         
-        logger.info(f"[FLOW] Estación '{station_name}' seleccionada correctamente")
+        logger.info(f"[FLOW] Station '{station_name}' selected successfully")
         
     except Exception as e:
-        logger.warning(f"[FLOW] Error seleccionando estación '{station_name}': {e}")
-        # Fallback: intentar rellenado directo
+        logger.warning(f"[FLOW] Error selecting station '{station_name}': {e}")
+        # Fallback: try direct fill
         try:
             await page.fill(selector, station_name)
             await page.press(selector, "Enter")
-            logger.info(f"[FLOW] Usando fallback de rellenado directo para '{station_name}'")
+            logger.info(f"[FLOW] Using direct fill fallback for '{station_name}'")
         except Exception as e2:
-            logger.error(f"[FLOW] Fallback también falló para '{station_name}': {e2}")
+            logger.error(f"[FLOW] Fallback also failed for '{station_name}': {e2}")
             raise
 
 
 async def _extract_results(page) -> List[TrainModel]:
-    """Extrae el contenido HTML y lo parsea con el parser independiente testeado."""
-    # Nota para mantenedores: Toda la lógica de parsing de HTML está centralizada
-    # en app/parser.py (función parse_train_list_html). Este scraper solo obtiene
-    # el HTML con Playwright y delega el análisis al parser probado por tests.
-    logger.info("[SCRAPER] Esperando carga de resultados...")
+    """Extract page HTML content and parse it using the independent parser."""
+    # Maintainers: All HTML parsing logic is centralized in app/parser.py
+    # (function parse_train_list_html). This scraper only fetches HTML with
+    # Playwright and delegates analysis to the tested parser.
+    logger.info("[SCRAPER] Waiting for results to load...")
     await page.wait_for_load_state("networkidle")
     html = await page.content()
     
-    # Usar el método centralizado para parsing y guardado
+    # Use centralized method for parsing and saving
     trains, _ = _parse_and_save_trains_json(html, 200, "buscarTren.do.log")
     return trains
 
@@ -287,9 +287,9 @@ async def search_trains(
     date_return: Optional[str],
     adults: int,
 ) -> Tuple[List[TrainModel], Optional[List[TrainModel]]]:
-    logger.info("[SCRAPER] Iniciando navegador Chromium")
+    logger.info("[SCRAPER] Starting Chromium browser")
 
-    # Buscar estaciones en el catálogo
+    # Find stations in catalog
     origin_station = _find_station(origin)
     dest_station = _find_station(destination)
 
@@ -300,7 +300,7 @@ async def search_trains(
         f"[SCRAPER] Destino: {dest_station.get('desgEstacion', destination)} - Clave: {dest_station.get('clave')}"
     )
 
-    # Convertir fechas de YYYY-MM-DD a DD/MM/YYYY
+    # Convert dates from YYYY-MM-DD to DD/MM/YYYY
     date_out_obj = datetime.strptime(date_out, "%Y-%m-%d")
     date_out_formatted = date_out_obj.strftime("%d/%m/%Y")
 
@@ -309,7 +309,7 @@ async def search_trains(
         date_return_obj = datetime.strptime(date_return, "%Y-%m-%d")
         date_return_formatted = date_return_obj.strftime("%d/%m/%Y")
 
-    # Construir form data
+    # Build form data
     form_data = {
         "tipoBusqueda": "autocomplete",
         "currenLocation": "menuBusqueda",
@@ -349,12 +349,12 @@ async def search_trains(
         context = await browser.new_context(locale="es-ES")
         page = await context.new_page()
 
-        logger.info(f"[SCRAPER] Enviando POST a {RENFE_SEARCH_URL}")
+        logger.info(f"[SCRAPER] Sending POST to {RENFE_SEARCH_URL}")
 
-        # Navegar directamente con POST
+        # Navigate directly with POST
         await page.goto(RENFE_SEARCH_URL, wait_until="domcontentloaded")
 
-        # Enviar el formulario con JavaScript
+        # Send form via JavaScript
         await page.evaluate(f"""
             const form = document.createElement('form');
             form.method = 'POST';
@@ -373,28 +373,28 @@ async def search_trains(
             form.submit();
         """)
 
-        logger.info("[SCRAPER] Esperando respuesta del servidor...")
+        logger.info("[SCRAPER] Waiting for server response...")
         await page.wait_for_load_state("networkidle", timeout=30000)
 
-        # Guardar la respuesta HTML
+        # Save HTML response
         response_content = await page.content()
         _save_response(response_content, status_code=200)
 
-        logger.info("[SCRAPER] Extrayendo resultados de ida")
+        logger.info("[SCRAPER] Extracting outbound results")
         trains_out = await _extract_results(page)
         trains_ret: Optional[List[TrainModel]] = None
 
         if date_return and trains_out:
             try:
-                # Intentar buscar pestaña o sección de vuelta
-                logger.info("[SCRAPER] Buscando resultados de vuelta")
+                # Try to find return tab/section
+                logger.info("[SCRAPER] Finding return results")
                 vuelta_tab = page.locator(
                     '[id*="vuelta"], [class*="vuelta"], a:has-text("Vuelta")'
                 )
                 if await vuelta_tab.count() > 0:
                     await vuelta_tab.first().click()
                     await page.wait_for_timeout(500)
-                    logger.info("[SCRAPER] Extrayendo resultados de vuelta")
+                    logger.info("[SCRAPER] Extracting return results")
                     trains_ret = await _extract_results(page)
             except Exception as e:
                 logger.warning(
@@ -402,7 +402,7 @@ async def search_trains(
                 )
                 trains_ret = None
 
-        logger.info("[SCRAPER] Cerrando navegador")
+        logger.info("[SCRAPER] Closing browser")
         await context.close()
         await browser.close()
 
@@ -418,15 +418,15 @@ async def search_trains_flow(
     playwright: Optional[dict] = None,
 ) -> str:
     """
-    Realiza el flujo completo desde la página inicial de Renfe hasta la búsqueda.
+    Perform the complete flow from Renfe's homepage to search.
 
     Args:
-        origin: Estación de origen
-        destination: Estación de destino
-        date_out: Fecha de ida (YYYY-MM-DD)
-        date_return: Fecha de vuelta opcional (YYYY-MM-DD)
-        adults: Número de pasajeros adultos
-        playwright: Diccionario de configuración Playwright: {
+        origin: Origin station
+        destination: Destination station
+        date_out: Outbound date (YYYY-MM-DD)
+        date_return: Optional return date (YYYY-MM-DD)
+        adults: Number of adult passengers
+        playwright: Playwright config dict: {
             'headless': bool,
             'viewport_width': int,
             'viewport_height': int,
@@ -434,18 +434,18 @@ async def search_trains_flow(
         }
 
     Returns:
-        Ruta del archivo de respuesta guardado
+        Path to the saved response file
     """
-    # Loggear parámetros de entrada
-    logger.info(f"[FLOW] Parámetros de entrada:")
-    logger.info(f"[FLOW]   - Origen: {origin}")
-    logger.info(f"[FLOW]   - Destino: {destination}")
-    logger.info(f"[FLOW]   - Fecha ida: {date_out}")
-    logger.info(f"[FLOW]   - Fecha vuelta: {date_return if date_return else 'No especificada'}")
-    logger.info(f"[FLOW]   - Pasajeros: {adults} adulto{'s' if adults > 1 else ''}")
-    logger.info(f"[FLOW]   - Configuración Playwright: {playwright}")
+    # Log input parameters
+    logger.info(f"[FLOW] Input parameters:")
+    logger.info(f"[FLOW]   - Origin: {origin}")
+    logger.info(f"[FLOW]   - Destination: {destination}")
+    logger.info(f"[FLOW]   - Outbound date: {date_out}")
+    logger.info(f"[FLOW]   - Return date: {date_return if date_return else 'Not specified'}")
+    logger.info(f"[FLOW]   - Passengers: {adults} adult{'s' if adults > 1 else ''}")
+    logger.info(f"[FLOW]   - Playwright config: {playwright}")
     
-    logger.info("[FLOW] Iniciando navegador Chromium desde página inicial")
+    logger.info("[FLOW] Starting Chromium browser from homepage")
 
     async with async_playwright() as p:
         # Extraer configuración de Playwright
@@ -479,19 +479,19 @@ async def search_trains_flow(
         page = await context.new_page()
 
         try:
-            # Navegar a la página inicial de Renfe
-            logger.info("[FLOW] Navegando a página inicial de Renfe")
+            # Navigate to Renfe homepage
+            logger.info("[FLOW] Navigating to Renfe homepage")
             await page.goto(
                 "https://www.renfe.com/es/es", wait_until="domcontentloaded"
             )
 
-            # Esperar un momento para que cargue la página
+            # Small delay to let the page load widgets
             await page.wait_for_timeout(2000)
 
-            # Aceptar cookies si aparece el popup
-            logger.info("[FLOW] Verificando popup de cookies")
+            # Accept cookies if popup appears
+            logger.info("[FLOW] Checking cookie popup")
             try:
-                # Intentar múltiples selectores para el botón de aceptar cookies
+                # Try multiple selectors for the accept cookies button
                 cookie_selectors = [
                     "button#onetrust-accept-btn-handler",
                     "button.onetrust-close-btn-handler",
@@ -509,33 +509,25 @@ async def search_trains_flow(
                         if await cookie_btn.is_visible(timeout=1000):
                             await cookie_btn.click()
                             await page.wait_for_timeout(300)
-                            logger.info(
-                                f"[FLOW] Cookies aceptadas con selector: {selector}"
-                            )
+                            logger.info(f"[FLOW] Cookies accepted with selector: {selector}")
                             clicked_cookies = True
                             break
                     except Exception:
                         continue
 
                 if not clicked_cookies:
-                    logger.info(
-                        "[FLOW] No se encontró popup de cookies o ya fue aceptado"
-                    )
+                    logger.info("[FLOW] No cookie popup found or already accepted")
             except Exception as e:
-                logger.warning(f"[FLOW] Error manejando cookies: {e}")
+                logger.warning(f"[FLOW] Error handling cookies: {e}")
 
-            # Buscar estaciones en el catálogo
+            # Find stations in catalog
             origin_station = _find_station(origin)
             dest_station = _find_station(destination)
 
-            logger.info(
-                f"[FLOW] Origen: {origin_station.get('desgEstacion', origin)} - Clave: {origin_station.get('clave')}"
-            )
-            logger.info(
-                f"[FLOW] Destino: {dest_station.get('desgEstacion', destination)} - Clave: {dest_station.get('clave')}"
-            )
+            logger.info(f"[FLOW] Origin: {origin_station.get('desgEstacion', origin)} - Key: {origin_station.get('clave')}")
+            logger.info(f"[FLOW] Destination: {dest_station.get('desgEstacion', destination)} - Key: {dest_station.get('clave')}")
 
-            # Convertir fechas de YYYY-MM-DD a DD/MM/YYYY
+            # Convert dates from YYYY-MM-DD to DD/MM/YYYY
             date_out_obj = datetime.strptime(date_out, "%Y-%m-%d")
             date_out_formatted = date_out_obj.strftime("%d/%m/%Y")
 
@@ -544,29 +536,29 @@ async def search_trains_flow(
                 date_return_obj = datetime.strptime(date_return, "%Y-%m-%d")
                 date_return_formatted = date_return_obj.strftime("%d/%m/%Y")
 
-            # Esperar a que cargue el formulario
+            # Wait for form to be ready
             await page.wait_for_selector("#origin", timeout=5000)
 
-            # Seleccionar origen desde dropdown
-            logger.info(f"[FLOW] Seleccionando origen: {origin}")
+            # Select origin from dropdown
+            logger.info(f"[FLOW] Selecting origin: {origin}")
             await _select_station_from_dropdown(page, "#origin", origin_station.get("desgEstacion", origin))
 
-            # Seleccionar destino desde dropdown
-            logger.info(f"[FLOW] Seleccionando destino: {destination}")
+            # Select destination from dropdown
+            logger.info(f"[FLOW] Selecting destination: {destination}")
             await _select_station_from_dropdown(page, "#destination", dest_station.get("desgEstacion", destination))
 
-            # Interactuar con el date picker de Renfe correctamente
-            logger.info(f"[FLOW] Configurando fecha de ida: {date_out_formatted}")
+            # Interact with Renfe date picker correctly
+            logger.info(f"[FLOW] Setting outbound date: {date_out_formatted}")
 
             try:
-                # 1) Abrir date picker haciendo click en el input de ida
+                # 1) Open date picker by clicking outbound input
                 await page.click("#first-input", timeout=5000)
                 await page.wait_for_selector("#daterangev2", timeout=5000)
                 await page.wait_for_timeout(200)
 
-                # 2) Seleccionar modo ida / ida y vuelta
+                # 2) Select one-way / round-trip mode
                 if date_return_formatted:
-                    # Viaje de ida y vuelta
+                    # Round-trip
                     vuelta_label = page.locator(
                         ".lightpick__label:has-text('Viaje de ida y vuelta')"
                     ).first
@@ -577,7 +569,7 @@ async def search_trains_flow(
                     except Exception:
                         pass
                 else:
-                    # Viaje solo ida
+                    # One-way
                     ida_label = page.locator(
                         ".lightpick__label:has-text('Viaje solo ida')"
                     ).first
@@ -588,7 +580,7 @@ async def search_trains_flow(
                     except Exception:
                         pass
 
-                # 3) Helpers para navegar meses y leer meses visibles
+                # 3) Helpers to navigate months and read visible months
                 spanish_months = {
                     1: "Enero",
                     2: "Febrero",
@@ -605,12 +597,12 @@ async def search_trains_flow(
                 }
 
                 async def get_visible_month_texts() -> tuple[str, Optional[str]]:
-                    # Esperar a que la zona de meses exista
+                    # Wait for months container to exist
                     await page.wait_for_selector(
                         "#daterangev2 .lightpick__months",
                         timeout=5000,
                     )
-                    # Leer textos vía JS para evitar fallos por cambios leves en estructura
+                    # Read titles via JS to be resilient to minor structure changes
                     result = await page.evaluate(
                         """
                         (() => {
@@ -618,13 +610,13 @@ async def search_trains_flow(
                             const header = document.querySelector(`#daterangev2 > section > div.lightpick__inner > div.lightpick__months > section:nth-child(${idx}) > header`);
                             if (!header) return '';
                             
-                            // Buscar el span específico que contiene el mes y año
+                            // Find the specific span containing month and year
                             const monthSpan = header.querySelector('div > span > span:nth-child(1)');
                             if (monthSpan) {
                               return monthSpan.textContent || '';
                             }
                             
-                            // Fallback: extraer solo la primera línea del texto
+                            // Fallback: extract only the first text line
                             const txt = header.textContent || '';
                             const lines = txt.split('\\n').filter(line => line.trim());
                             return lines[0] ? lines[0].trim() : '';
@@ -636,12 +628,12 @@ async def search_trains_flow(
                     m1_raw = result.get("m1") or ""
                     m2_raw = result.get("m2") or ""
                     
-                    # Logging detallado de meses visualizados
-                    logger.info(f"[FLOW] 📅 Meses visualizados en el date picker:")
-                    logger.info(f"[FLOW]   - Mes 1: '{m1_raw}'")
-                    logger.info(f"[FLOW]   - Mes 2: '{m2_raw}'")
+                    # Detailed logging of visible months
+                    logger.info(f"[FLOW] 📅 Visible months in date picker:")
+                    logger.info(f"[FLOW]   - Month 1: '{m1_raw}'")
+                    logger.info(f"[FLOW]   - Month 2: '{m2_raw}'")
                     
-                    # Convertir a minúsculas para comparación
+                    # Lowercase for comparison
                     m1 = m1_raw.strip().lower()
                     m2 = m2_raw.strip().lower() if m2_raw else None
                     
@@ -657,11 +649,11 @@ async def search_trains_flow(
                     mon_lower = mon.lower()
                     matches = mon_lower in month_text_lower
                     
-                    # Logging detallado de comparación de meses
-                    logger.info(f"[FLOW] 🔍 Comparando meses:")
-                    logger.info(f"[FLOW]   - Fecha objetivo: {target_dt.strftime('%Y-%m-%d')} (mes: {mon})")
-                    logger.info(f"[FLOW]   - Mes visualizado: '{month_text}'")
-                    logger.info(f"[FLOW]   - ¿Coincide? {matches} (buscando '{mon_lower}' en '{month_text_lower}')")
+                    # Detailed logging of month comparison
+                    logger.info(f"[FLOW] 🔍 Comparing months:")
+                    logger.info(f"[FLOW]   - Target date: {target_dt.strftime('%Y-%m-%d')} (month: {mon})")
+                    logger.info(f"[FLOW]   - Visible month: '{month_text}'")
+                    logger.info(f"[FLOW]   - Matches? {matches} (searching '{mon_lower}' in '{month_text_lower}')")
                     
                     return matches
 
@@ -680,31 +672,31 @@ async def search_trains_flow(
                         return False
                     return False
 
-                # 4) Navegar hasta mostrar el mes de ida (en 1er o 2º panel si hay dos)
-                max_steps = 18  # límite de seguridad
+                # 4) Navigate until outbound month is visible (1st or 2nd panel)
+                max_steps = 18  # safety limit
                 steps = 0
-                logger.info(f"[FLOW] 🗓️ Navegando para encontrar el mes de ida: {date_out_obj.strftime('%B %Y')}")
+                logger.info(f"[FLOW] 🗓️ Navigating to find outbound month: {date_out_obj.strftime('%B %Y')}")
                 
                 while steps < max_steps:
-                    logger.info(f"[FLOW] 📍 Paso {steps + 1}/{max_steps} - Verificando meses visibles...")
+                    logger.info(f"[FLOW] 📍 Step {steps + 1}/{max_steps} - Checking visible months...")
                     m1, m2 = await get_visible_month_texts()
                     
-                    # Verificar si encontramos el mes en el primer panel
+                    # Check first panel
                     if month_matches(date_out_obj, m1):
-                        logger.info(f"[FLOW] ✅ ¡Mes de ida encontrado en el primer panel!")
+                        logger.info(f"[FLOW] ✅ Outbound month found in first panel!")
                         break
                     
-                    # Verificar si encontramos el mes en el segundo panel (si existe)
+                    # Check second panel (if available)
                     if m2 and month_matches(date_out_obj, m2):
-                        logger.info(f"[FLOW] ✅ ¡Mes de ida encontrado en el segundo panel!")
+                        logger.info(f"[FLOW] ✅ Outbound month found in second panel!")
                         break
                     
-                    # Si no encontramos el mes, navegar al siguiente
-                    logger.info(f"[FLOW] ➡️ Mes no encontrado, navegando al siguiente...")
+                    # If not found, go next
+                    logger.info(f"[FLOW] ➡️ Month not found, going next...")
                     await click_next()
                     steps += 1
 
-                # 5) Seleccionar día de ida (en panel 1 o 2 según visibilidad)
+                # 5) Select outbound day (panel 1 or 2, depending on visibility)
                 selected_out = await select_day_in_panel(1, date_out_obj.day)
                 if not selected_out and (
                     await page.locator(
@@ -713,11 +705,9 @@ async def search_trains_flow(
                 ):
                     selected_out = await select_day_in_panel(2, date_out_obj.day)
                 if not selected_out:
-                    raise Exception(
-                        "No se pudo seleccionar el día de ida en el date picker"
-                    )
+                    raise Exception("Could not select outbound day in date picker")
 
-                # 6) Si hay fecha de vuelta, navegar y seleccionar también
+                # 6) If return date, navigate and select it as well
                 if date_return_formatted:
                     steps = 0
                     while steps < max_steps:
@@ -737,13 +727,11 @@ async def search_trains_flow(
                     ):
                         selected_ret = await select_day_in_panel(2, date_return_obj.day)
                     if not selected_ret:
-                        raise Exception(
-                            "No se pudo seleccionar el día de vuelta en el date picker"
-                        )
+                        raise Exception("Could not select return day in date picker")
 
-                # 7) Pulsar Aceptar
+                # 7) Click Accept
                 try:
-                    logger.info("[FLOW] Pulsando Aceptar")
+                    logger.info("[FLOW] Clicking Accept")
                     aceptar_btn = page.locator(
                         "#daterangev2 > section > div.lightpick__footer-buttons > button:nth-child(2), button.lightpick__apply-action-sub"
                     ).first
@@ -751,13 +739,13 @@ async def search_trains_flow(
                         await aceptar_btn.click()
                         await page.wait_for_timeout(200)
                 except Exception:
-                    logger.warning("[FLOW] No se pudo pulsar Aceptar")
+                    logger.warning("[FLOW] Could not click Accept")
                     pass
 
-                logger.info("[FLOW] Fechas seleccionadas en date picker")
+                logger.info("[FLOW] Dates selected in date picker")
 
             except Exception as e:
-                logger.error(f"[FLOW] Error configurando fechas: {e}")
+                logger.error(f"[FLOW] Error configuring dates: {e}")
                 try:
                     error_screenshot = os.path.join(
                         RESPONSES_DIR, "debug_datepicker_error.png"
@@ -768,20 +756,18 @@ async def search_trains_flow(
                     pass
                 raise
 
-            # Configurar número de pasajeros
-            logger.info(f"[FLOW] Configurando pasajeros: {adults}")
-            # El campo de pasajeros puede no ser directamente editable, verificar
+            # Configure number of passengers
+            logger.info(f"[FLOW] Setting passengers: {adults}")
+            # Passengers field might not be directly editable, check
             try:
                 await page.fill("#adultos_", str(adults))
             except Exception:
-                logger.info(
-                    "[FLOW] No se pudo rellenar pasajeros directamente, usando valor por defecto"
-                )
+                logger.info("[FLOW] Could not fill passengers directly, using default value")
 
-            # Hacer clic en el botón de buscar
-            logger.info("[FLOW] Buscando botón de buscar billetes")
+            # Click search button
+            logger.info("[FLOW] Finding search button")
 
-            # Intentar múltiples selectores para el botón de buscar
+            # Try multiple selectors for search button
             search_selectors = [
                 "#ticketSearchBt button span:has-text('Buscar billete')",
                 "button:has-text('Buscar billete')",
@@ -798,22 +784,18 @@ async def search_trains_flow(
                 try:
                     search_btn = page.locator(selector).first
                     if await search_btn.is_visible(timeout=1000):
-                        logger.info(
-                            f"[FLOW DEBUG] Encontrado botón de buscar con selector: {selector}"
-                        )
+                        logger.info(f"[FLOW DEBUG] Found search button with selector: {selector}")
                         await search_btn.click()
                         clicked_search = True
-                        logger.info("[FLOW] Click en buscar billetes exitoso")
+                        logger.info("[FLOW] Search click successful")
                         break
                 except Exception as e:
-                    logger.debug(
-                        f"[FLOW DEBUG] Selector de botón '{selector}' falló: {e}"
-                    )
+                    logger.debug(f"[FLOW DEBUG] Button selector '{selector}' failed: {e}")
                     continue
 
             if not clicked_search:
-                logger.error("[FLOW DEBUG] No se encontró botón de buscar")
-                # Intentar hacer submit del formulario directamente
+                logger.error("[FLOW DEBUG] Search button not found")
+                # Try submitting the form directly
                 try:
                     await page.evaluate("""
                         const form = document.querySelector('form');
@@ -821,32 +803,32 @@ async def search_trains_flow(
                             form.submit();
                         }
                     """)
-                    logger.info("[FLOW] Submit del formulario ejecutado con JavaScript")
+                    logger.info("[FLOW] Form submit executed via JavaScript")
                 except Exception as e:
-                    logger.error(f"[FLOW] Error haciendo submit del formulario: {e}")
+                    logger.error(f"[FLOW] Error submitting form: {e}")
                     raise Exception(
-                        "No se pudo hacer clic en buscar ni submit del formulario"
+                        "Could not click search nor submit the form"
                     )
 
-            # Esperar a que cargue la página de resultados
+            # Wait for results page to load
             await page.wait_for_load_state("networkidle")
 
-            # Obtener el contenido HTML de la página de resultados
+            # Get HTML content of results page
             response_content = await page.content()
 
-            # Usar el método centralizado para parsing y guardado
+            # Use centralized method for parsing and saving
             trains, filepath = _parse_and_save_trains_json(
                 response_content,
                 status_code=200,
                 filename_suffix="buscarTrenFlow.do.log",
             )
 
-            logger.info(f"[FLOW] Flujo completado exitosamente - {len(trains)} trenes encontrados")
+            logger.info(f"[FLOW] Flow completed successfully - {len(trains)} trains found")
             return filepath
 
         except Exception as e:
-            logger.error(f"[FLOW] Error en el flujo: {e}")
-            # Intentar guardar la respuesta de error
+            logger.error(f"[FLOW] Flow error: {e}")
+            # Try to save error response
             try:
                 response_content = await page.content()
                 _, filepath = _parse_and_save_trains_json(
@@ -859,6 +841,6 @@ async def search_trains_flow(
                 pass
             raise
         finally:
-            logger.info("[FLOW] Cerrando navegador")
+            logger.info("[FLOW] Closing browser")
             await context.close()
             await browser.close()

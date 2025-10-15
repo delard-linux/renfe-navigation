@@ -8,7 +8,7 @@ import json
 
 from .renfe import search_trains, search_trains_flow
 
-# Configurar logging
+# Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
@@ -18,7 +18,7 @@ app = FastAPI(title="Renfe Navigation API")
 
 
 class FareOption(BaseModel):
-    """Tarifa individual de un tren"""
+    """Individual train fare"""
 
     name: str
     price: float
@@ -29,7 +29,7 @@ class FareOption(BaseModel):
 
 
 class Train(BaseModel):
-    """Tren con todas sus tarifas y detalles"""
+    """Train with all fares and details"""
 
     train_id: str
     service_type: str
@@ -64,7 +64,7 @@ async def get_trains(
 ):
     start_time = datetime.now()
     logger.info(
-        f"[REQUEST] Iniciando búsqueda: {origin} -> {destination}, Salida: {date_out}, Vuelta: {date_return}, Pasajeros: {adults}"
+        f"[REQUEST] Starting search: {origin} -> {destination}, Outbound: {date_out}, Return: {date_return}, Passengers: {adults}"
     )
 
     try:
@@ -76,7 +76,7 @@ async def get_trains(
             adults=adults,
         )
 
-        # Mapear modelos del scraper (TrainModel) al modelo API (Train)
+        # Map scraper models (TrainModel) to API model (Train)
         trains_out_api = [
             Train(**t.model_dump()) if hasattr(t, "model_dump") else Train(**t)
             for t in trains_out
@@ -90,7 +90,7 @@ async def get_trains(
 
         elapsed = (datetime.now() - start_time).total_seconds()
         logger.info(
-            f"[SUCCESS] Búsqueda completada en {elapsed:.2f}s - Trenes ida: {len(trains_out_api)}, Trenes vuelta: {len(trains_ret_api) if trains_ret_api else 0}"
+            f"[SUCCESS] Search completed in {elapsed:.2f}s - Outbound trains: {len(trains_out_api)}, Return trains: {len(trains_ret_api) if trains_ret_api else 0}"
         )
 
         payload = TrainsResponse(
@@ -103,10 +103,10 @@ async def get_trains(
             trains_return=trains_ret_api,
         )
 
-        # Log del JSON de salida en formato pretty
+        # Log pretty-printed response JSON
         payload_json = payload.model_dump()
         logger.info(
-            f"[RESPONSE] JSON de salida:\n{json.dumps(payload_json, indent=2, ensure_ascii=False)}"
+            f"[RESPONSE] Output JSON:\n{json.dumps(payload_json, indent=2, ensure_ascii=False)}"
         )
 
         return JSONResponse(content=payload_json)
@@ -124,10 +124,10 @@ async def get_trains_flow(
     date_return: Optional[str] = Query(None, description="Return date YYYY-MM-DD"),
     adults: int = Query(1, ge=1, le=8, description="Number of adult passengers"),
 ):
-    """Endpoint que realiza el flujo completo desde la página inicial de Renfe hasta la búsqueda de trenes"""
+    """Endpoint that performs the complete flow from Renfe's homepage to train search"""
     start_time = datetime.now()
     logger.info(
-        f"[FLOW REQUEST] Iniciando flujo: {origin} -> {destination}, Salida: {date_out}, Vuelta: {date_return}, Pasajeros: {adults}"
+        f"[FLOW REQUEST] Starting flow: {origin} -> {destination}, Outbound: {date_out}, Return: {date_return}, Passengers: {adults}"
     )
 
     try:
@@ -142,14 +142,14 @@ async def get_trains_flow(
 
         elapsed = (datetime.now() - start_time).total_seconds()
         logger.info(
-            f"[FLOW SUCCESS] Flujo completado en {elapsed:.2f}s - Archivo guardado: {filepath}"
+            f"[FLOW SUCCESS] Flow completed in {elapsed:.2f}s - File saved: {filepath}"
         )
 
-        return {"message": "Flujo completado exitosamente", "filepath": filepath}
+        return {"message": "Flow completed successfully", "filepath": filepath}
 
     except Exception as e:
         elapsed = (datetime.now() - start_time).total_seconds()
-        logger.error(f"[FLOW ERROR] Flujo falló después de {elapsed:.2f}s: {str(e)}")
+        logger.error(f"[FLOW ERROR] Flow failed after {elapsed:.2f}s: {str(e)}")
         raise
 
 
